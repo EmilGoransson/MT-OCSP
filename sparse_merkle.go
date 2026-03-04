@@ -100,7 +100,7 @@ func smtTest() {
 		fmt.Println("Proof verification failed.")
 	}
 }
-func createEmptySMT() *smt.SparseMerkleTree {
+func NewSparseMerkle() *smt.SparseMerkleTree {
 	nodeStore := smt.NewSimpleMap()
 	valueStore := smt.NewSimpleMap()
 	// nodeStore.Set(getStringHash("1"), getStringHash("One"))
@@ -119,7 +119,7 @@ func getByteHash(bytes []byte) []byte {
 }
 func getRandomCert() (certObject, error) {
 	// Generate key pair
-	caPrivKey, err := rsa.GenerateKey(rand.Reader, 4096)
+	caPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		return certObject{nil, nil}, errors.New("error generating key")
 	}

@@ -32,15 +32,20 @@ func generateRandBlocks(size int) (blocks []mt.DataBlock) {
 }
 
 // inBlocks []mt.DataBlock
-func createEmptyMT() *mt.MerkleTree {
+func NewMerkle() (*mt.MerkleTree, error) {
 
 	config := &mt.Config{
 		DisableLeafHashing: false,
 		SortSiblingPairs:   true,
 		Mode:               mt.ModeProofGenAndTreeBuild,
 	}
-	mtTree, _ := mt.New(config, generateRandBlocks(10))
-	return mtTree
+	mtTree, err := mt.New(config, generateRandBlocks(10))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return mtTree, nil
 }
 func sortBlocks() {
 
@@ -52,7 +57,7 @@ func mtTest() {
 
 			blocks := generateRandBlocks(4)
 		rndBlock := generateRandBlocks(1)
-		mtTree := createEmptyMT()
+		mtTree := NewMerkle()
 		// Generate proof for every node in the tree
 		proofs := mtTree.Proofs
 		fmt.Println(proofs)
