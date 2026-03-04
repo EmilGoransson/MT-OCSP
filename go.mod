@@ -3,6 +3,7 @@ module SIgnatureless-OCSP
 go 1.25
 
 require (
+	github.com/cbergoon/merkletree v0.2.0 // indirect
 	github.com/celestiaorg/smt v0.3.0 // indirect
 	github.com/iden3/go-iden3-crypto v0.0.16 // indirect
 	github.com/pkg/errors v0.9.1 // indirect

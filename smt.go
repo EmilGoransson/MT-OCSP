@@ -21,7 +21,7 @@ type certObject struct {
 	key         *rsa.PrivateKey
 }
 
-func main() {
+func smtTest() {
 
 	// Initialise two new key-value store to store the nodes and values of the tree
 	nodeStore := smt.NewSimpleMap()
@@ -100,11 +100,18 @@ func main() {
 		fmt.Println("Proof verification failed.")
 	}
 }
+func createEmptySMT() *smt.SparseMerkleTree {
+	nodeStore := smt.NewSimpleMap()
+	valueStore := smt.NewSimpleMap()
+	// nodeStore.Set(getStringHash("1"), getStringHash("One"))
+	return smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())
+}
 func getStringHash(str string) []byte {
 	h := sha256.New()
 	h.Write([]byte(str))
 	return h.Sum(nil)
 }
+
 func getByteHash(bytes []byte) []byte {
 	h := sha256.New()
 	h.Write(bytes)
