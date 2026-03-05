@@ -1,7 +1,9 @@
 package main
 
 import (
-	"crypto/rand"
+	"bytes"
+	"fmt"
+	"sort"
 
 	mt "github.com/txaty/go-merkletree"
 )
@@ -17,69 +19,46 @@ func (t *certHash) Serialize() ([]byte, error) {
 }
 
 // generate dummy data blocks
-func generateRandBlocks(size int) (blocks []mt.DataBlock) {
+func GenerateRandBlocks(size int) ([]mt.DataBlock, error) {
+	var blocks []mt.DataBlock
 	for i := 0; i < size; i++ {
 		certObj, err := getRandomCert()
 
 		block := &certHash{
 			hash: getByteHash(certObj.certificate),
 		}
-		_, err = rand.Read(block.hash)
-		handleError(err)
+		if err != nil {
+			return nil, err
+		}
 		blocks = append(blocks, block)
 	}
-	return
+	return blocks, nil
 }
 
-// inBlocks []mt.DataBlock
-func NewMerkle() (*mt.MerkleTree, error) {
+// TODO: Figure out how to do with "input" blocks for merkle.go, random blocks?
+
+func NewMerkle(blocks []mt.DataBlock) (*mt.MerkleTree, error) {
 
 	config := &mt.Config{
-		DisableLeafHashing: false,
-		SortSiblingPairs:   true,
-		Mode:               mt.ModeProofGenAndTreeBuild,
+		// Values hashed before placed in certHash (Should we?)
+		// DisableLeafHashing: false,
+		SortSiblingPairs: true,
+		Mode:             mt.ModeTreeBuild,
 	}
-	mtTree, err := mt.New(config, generateRandBlocks(10))
+
+	// Sort the blocks before inserting
+	sort.Slice(blocks, func(i, j int) bool {
+		dataI, _ := blocks[i].Serialize()
+		dataJ, _ := blocks[j].Serialize()
+		return bytes.Compare(dataI[:], dataJ[:]) < 0
+	})
+	fmt.Println("---")
+
+	mtTree, err := mt.New(config, blocks)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return mtTree, nil
-}
-func sortBlocks() {
-
-}
-
-func mtTest() {
-
-	/*
-
-			blocks := generateRandBlocks(4)
-		rndBlock := generateRandBlocks(1)
-		mtTree := NewMerkle()
-		// Generate proof for every node in the tree
-		proofs := mtTree.Proofs
-		fmt.Println(proofs)
-		// generate proof for a single node
-
-
-
-		proof0 := mtTree.Proof(blocks[0])
-		fmt.Println(proof0)
-
-		// verify single block
-		status, err := mtTree.Verify(blocks[0], proof0)
-		fmt.Println(status)
-
-		status, err = mtTree.Verify(rndBlock[0], proof0)
-
-		fmt.Println(status)
-	*/
-}
-
-func handleError(err error) {
-	if err != nil {
-		panic(err)
-	}
 }
