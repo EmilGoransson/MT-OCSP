@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-
 	"github.com/celestiaorg/smt"
 	"github.com/txaty/go-merkletree"
 )
@@ -19,11 +17,10 @@ type CombinedTree struct {
 // Add to tree from list?
 
 func NewCombinedTree() (*CombinedTree, error) {
-	// Create a SMT
-	// Create MT
+
 	merkle, err := NewMerkle()
 	if err != nil {
-		return nil, fmt.Errorf("creating combined Merkle tree: %w", err)
+		return nil, err
 	}
 
 	tree := CombinedTree{
@@ -33,8 +30,25 @@ func NewCombinedTree() (*CombinedTree, error) {
 	}
 	return &tree, nil
 }
-func (c *CombinedTree) addRevocationToTree() {
+func (c *CombinedTree) addRevocationToTree(value []byte) ([]byte, error) {
+	newRoot, err := c.revSMT.Update(value, value)
+	if err != nil {
+		return nil, err
+	}
+	return newRoot, nil
 }
+func (c *CombinedTree) addBulkRevocationToTree(values [][]byte) ([]byte, error) {
+	var newRoot []byte
+	var err error
+	for _, value := range values {
+		newRoot, err = c.addRevocationToTree(value)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return newRoot, nil
+}
+
 func (c *CombinedTree) addIssuanceToTree() {
 
 }
