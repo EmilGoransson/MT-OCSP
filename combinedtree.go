@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"time"
 
@@ -15,6 +16,10 @@ type CombinedTree struct {
 	issuedMT *merkletree.MerkleTree
 	revSMT   *smt.SparseMerkleTree
 }
+type CombinedProof struct {
+	issueProof *merkletree.Proof
+	revProof   *smt.SparseMerkleProof
+}
 
 // What is good practice here?
 // take head and sign using some key
@@ -22,9 +27,9 @@ type CombinedTree struct {
 // Random blocks in merkle tree
 // TODO: Figure out how to do with "input" blocks.
 // TODO: Perhaps create function that takes input blocks for MT and input blocks for SMT & adds them to tree?
-func NewCombinedTree(merkleBlocks []merkletree.DataBlock) (*CombinedTree, error) {
+func NewCombinedTree(byteSlice [][]byte) (*CombinedTree, error) {
 	// To be changed
-	merkle, err := NewMerkle(merkleBlocks)
+	merkle, err := NewMerkle(byteSlice)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +64,7 @@ func (c *CombinedTree) addBulkRevocationToTree(values [][]byte) ([]byte, error) 
 	return newRoot, nil
 }
 
-func (c *CombinedTree) getMembershipProof(value []byte) (smt.SparseMerkleProof, error) {
+func (c *CombinedTree) newMembershipProofRevoked(value []byte) (smt.SparseMerkleProof, error) {
 	proof, err := c.revSMT.Prove(value)
 	if err != nil {
 		return smt.SparseMerkleProof{}, err
@@ -74,6 +79,54 @@ func (c *CombinedTree) validateSparseMTMembershipProof(proof smt.SparseMerklePro
 func (c *CombinedTree) validateSparseMTNonMembershipProof(proof smt.SparseMerkleProof, value []byte) (bool, error) {
 	return smt.VerifyProof(proof, c.revSMT.Root(), value, []byte{}, sha256.New()), nil
 }
+func (c *CombinedTree) validateSortedMTMembershipProof(b []byte, proof *merkletree.Proof) (bool, error) {
+	dataBlock, err := ByteToDataBlock(b)
+
+	if err != nil {
+		return false, err
+	}
+
+	isValid, err := c.issuedMT.Verify(dataBlock, proof)
+	if err != nil {
+		return false, err
+	}
+	return isValid, nil
+}
+func (c *CombinedTree) newMembershipProofIssued(b []byte) (*merkletree.Proof, error) {
+
+	dataBlock, err := ByteToDataBlock(b)
+
+	if err != nil {
+		return nil, err
+	}
+
+	proof, err := c.issuedMT.Proof(dataBlock)
+	if err != nil {
+		return nil, err
+	}
+	return proof, nil
+}
+
+// TODO: TEMP solution, if implemented correctly can be o(nlogn)?
+func (c *CombinedTree) smtHas(b []byte) (bool, error) {
+	leaves := c.issuedMT.Leaves
+	for _, leaf := range leaves {
+		if bytes.Compare(b, leaf) == 0 {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// TODO: Implement non membership proof in mt.merkletree
+func (c *CombinedTree) newNonMembershipProof(b []byte) (*merkletree.Proof, error) {
+	_, err := ByteToDataBlock(b)
+
+	if err != nil {
+		return nil, err
+	}
+	return &merkletree.Proof{}, err
+}
 
 // Is this really possible?
 func (c *CombinedTree) addIssuanceToTree() {
@@ -85,4 +138,23 @@ func (c *CombinedTree) updateGlobalRoot() {
 	h.Write(c.issuedMT.Root)
 	h.Write(c.revSMT.Root())
 	c.root = h.Sum(nil)
+}
+func (c *CombinedTree) newTreeProof(b []byte) (*CombinedProof, error) {
+	// Check if in tree
+	// Get issue proof
+
+	// Get rev proof
+	rProof, err := c.newMembershipProofRevoked(b)
+	if err != nil {
+		return nil, err
+	}
+	dataBlock, err := ByteToDataBlock(b)
+	if err != nil {
+		return nil, err
+	}
+	iProof, err := c.issuedMT.Proof(dataBlock)
+	if err != nil {
+		return nil, err
+	}
+	return &CombinedProof{issueProof: iProof, revProof: &rProof}, nil
 }

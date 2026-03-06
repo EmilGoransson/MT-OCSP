@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"sort"
 
 	mt "github.com/txaty/go-merkletree"
@@ -19,14 +18,27 @@ func (t *certHash) Serialize() ([]byte, error) {
 }
 
 // generate dummy data blocks
-func GenerateRandBlocks(size int) ([]mt.DataBlock, error) {
-	var blocks []mt.DataBlock
+func GenerateRandBlocks(size int) ([][]byte, error) {
+	var blocks [][]byte
+	pKey, err := NewKeyPair(2048)
+	if err != nil {
+		return nil, err
+	}
 	for i := 0; i < size; i++ {
-		certObj, err := getRandomCert()
+		certObj, err := NewRandomCertificate(pKey, false)
 
-		block := &certHash{
-			hash: getByteHash(certObj.certificate),
+		if err != nil {
+			return nil, err
 		}
+		blocks = append(blocks, certObj)
+	}
+	return blocks, nil
+}
+func ByteSliceToDataBlock(b [][]byte) ([]mt.DataBlock, error) {
+	var blocks []mt.DataBlock
+
+	for _, bSlice := range b {
+		block, err := ByteToDataBlock(bSlice)
 		if err != nil {
 			return nil, err
 		}
@@ -34,25 +46,40 @@ func GenerateRandBlocks(size int) ([]mt.DataBlock, error) {
 	}
 	return blocks, nil
 }
+func ByteToDataBlock(b []byte) (mt.DataBlock, error) {
+	block := &certHash{
+		hash: b,
+	}
+	return block, nil
+}
 
-// TODO: Figure out how to do with "input" blocks for merkle.go, random blocks?
+// TODO: implement the function
+func has() (bool, error) {
+	// Check the tree
+	return true, nil
+}
 
-func NewMerkle(blocks []mt.DataBlock) (*mt.MerkleTree, error) {
+// NewMerkle Takes [][]byte slices as input and converts it to []Datablock
+func NewMerkle(byteBlocks [][]byte) (*mt.MerkleTree, error) {
+
+	blocks, err := ByteSliceToDataBlock(byteBlocks)
+	if err != nil {
+		return nil, err
+	}
 
 	config := &mt.Config{
 		// Values hashed before placed in certHash (Should we?)
-		// DisableLeafHashing: false,
-		SortSiblingPairs: true,
-		Mode:             mt.ModeTreeBuild,
+		DisableLeafHashing: false,
+		SortSiblingPairs:   true,
+		Mode:               mt.ModeTreeBuild,
 	}
 
-	// Sort the blocks before inserting
+	// Sort the blocks before inserting TOOD:verify they r actually getting sorted
 	sort.Slice(blocks, func(i, j int) bool {
 		dataI, _ := blocks[i].Serialize()
 		dataJ, _ := blocks[j].Serialize()
 		return bytes.Compare(dataI[:], dataJ[:]) < 0
 	})
-	fmt.Println("---")
 
 	mtTree, err := mt.New(config, blocks)
 

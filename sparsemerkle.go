@@ -1,25 +1,23 @@
 package main
 
 import (
-	"bytes"
-	"crypto/rand"
-	"crypto/rsa"
 	"crypto/sha256"
-	"crypto/x509"
-	"crypto/x509/pkix"
-	"encoding/pem"
-	"errors"
-	"fmt"
-	"math/big"
-	"time"
 
 	"github.com/celestiaorg/smt"
 )
 
-type certObject struct {
-	certificate []byte
-	key         *rsa.PrivateKey
+type SMT struct {
+	smt.SparseMerkleTree
 }
+
+// TODO: does this work if i want to extend the package?
+// TODO: implement the function
+func (sMT *SMT) has(b []byte) (bool, error) {
+
+	return true, nil
+}
+
+/*
 
 func smtTest() {
 
@@ -100,6 +98,8 @@ func smtTest() {
 		fmt.Println("Proof verification failed.")
 	}
 }
+*/
+
 func NewSparseMerkle() *smt.SparseMerkleTree {
 	nodeStore := smt.NewSimpleMap()
 	valueStore := smt.NewSimpleMap()
@@ -117,11 +117,14 @@ func getByteHash(bytes []byte) []byte {
 	h.Write(bytes)
 	return h.Sum(nil)
 }
-func getRandomCert() (certObject, error) {
+
+/*
+
+func getRandomCert() (CertObject, error) {
 	// Generate key pair
 	caPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
-		return certObject{nil, nil}, errors.New("error generating key")
+		return CertObject{nil, nil}, errors.New("error generating key")
 	}
 
 	ca := &x509.Certificate{
@@ -143,7 +146,8 @@ func getRandomCert() (certObject, error) {
 	}
 	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
 	if err != nil {
-		return certObject{nil, nil}, errors.New("error generating certificate")
+		return CertObject{nil, nil}, errors.New("error generating certificate")
 	}
-	return certObject{caBytes, caPrivKey}, nil
+	return CertObject{caBytes, caPrivKey}, nil
 }
+*/
