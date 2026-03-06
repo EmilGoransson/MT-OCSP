@@ -109,9 +109,10 @@ func (c *CombinedTree) newMembershipProofIssued(b []byte) (*merkletree.Proof, er
 
 // TODO: TEMP solution, if implemented correctly can be o(nlogn)?
 func (c *CombinedTree) smtHas(b []byte) (bool, error) {
+	bHash := getByteHash(b)
 	leaves := c.issuedMT.Leaves
 	for _, leaf := range leaves {
-		if bytes.Compare(b, leaf) == 0 {
+		if bytes.Compare(bHash, leaf) == 0 {
 			return true, nil
 		}
 	}

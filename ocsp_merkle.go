@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -34,12 +35,20 @@ func findTreeTMP(rHash []byte) (*CombinedTree, error) {
 
 // What is included in the response?
 // TODO: Temp implementation, rootHash shall be given as part of the arguments
-func NewResponse(certHash []byte, rootHash []byte) (*MerkleResponse, error) {
-
-	// Find the matching root-hash from db or smth...
+func NewOCSPResponse(certHash []byte, rootHash []byte, c *CombinedTree) (*MerkleResponse, error) {
+	var status int8
+	var proof *CombinedProof
+	// If we have the root (for testing / tmp implementation)
+	if c != nil {
+		status, _ = getStatus(c, certHash)
+		proof, _ = c.newTreeProof(certHash)
+		fmt.Println("CombinedTree not nil, testing NewOCSPResponse")
+		return &MerkleResponse{status, time.Now(), proof}, nil
+	}
+	//  else Find the matching root-hash from db or smth... (actual use, use rootHASH given in args)
 	tree, _ := findTreeTMP(certHash)
-	status, _ := getStatus(tree, certHash)
-	proof, _ := tree.newTreeProof(certHash)
+	status, _ = getStatus(tree, certHash)
+	proof, _ = tree.newTreeProof(certHash)
 
 	// Get the tree tree struct
 

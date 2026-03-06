@@ -41,11 +41,18 @@ func main() {
 	}
 	fmt.Println(tree)
 
-	// Try and generate proof for one if the certificates
+	// Try and generate proof for one of the certificates
 	mProof, err := tree.newMembershipProofIssued(cList[3])
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println(mProof)
 
+	// Try to generate a OCSPResponse for cList[4],
+	//We have the root hash from before
+
+	res, err := NewOCSPResponse(cList[4], []byte{}, tree)
+	// Should be of status "GOOD"
+	fmt.Println(res)
+	// Is of status "Unknown", why?
 }
