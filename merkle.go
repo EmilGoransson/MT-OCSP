@@ -20,11 +20,11 @@ func (t *certHash) Serialize() ([]byte, error) {
 // generate dummy data blocks
 func GenerateRandBlocks(size int) ([][]byte, error) {
 	var blocks [][]byte
-	pKey, err := NewKeyPair(2048)
-	if err != nil {
-		return nil, err
-	}
 	for i := 0; i < size; i++ {
+		pKey, err := NewKeyPair(2048)
+		if err != nil {
+			return nil, err
+		}
 		certObj, err := NewRandomCertificate(pKey, false)
 
 		if err != nil {
