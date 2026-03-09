@@ -10,7 +10,7 @@ import (
 type certHash struct {
 	hash []byte
 }
-type sortedMT struct {
+type SortedMerkleTree struct {
 	*mt.MerkleTree
 }
 
@@ -18,7 +18,6 @@ func (t *certHash) Serialize() ([]byte, error) {
 	return t.hash, nil
 }
 
-// generate dummy data blocks
 func GenerateRandBlocks(size int) ([][]byte, error) {
 	var blocks [][]byte
 	for i := 0; i < size; i++ {
@@ -53,12 +52,12 @@ func ByteToDataBlock(b []byte) (mt.DataBlock, error) {
 	}
 	return block, nil
 }
-func (t *sortedMT) NewNonMemberProof() {
+func (t *SortedMerkleTree) NewNonMemberProof() {
 
 }
 
 // // TEMP solution, if implemented correctly can be o(logn)?
-func (t *sortedMT) has(b []byte) (bool, error) {
+func (t *SortedMerkleTree) has(b []byte) (bool, error) {
 	bHash := getByteHash(b)
 	leaves := t.MerkleTree.Leaves
 	for _, leaf := range leaves {
@@ -70,7 +69,7 @@ func (t *sortedMT) has(b []byte) (bool, error) {
 }
 
 // NewMerkle Takes [][]byte slices as input and converts it to []Datablock
-func NewMerkle(byteBlocks [][]byte) (*sortedMT, error) {
+func NewMerkle(byteBlocks [][]byte) (*SortedMerkleTree, error) {
 
 	blocks, err := ByteSliceToDataBlock(byteBlocks)
 	if err != nil {
@@ -91,7 +90,7 @@ func NewMerkle(byteBlocks [][]byte) (*sortedMT, error) {
 		return bytes.Compare(dataI[:], dataJ[:]) < 0
 	})
 	mtTree, err := mt.New(config, blocks)
-	var tree = &sortedMT{mtTree}
+	var tree = &SortedMerkleTree{mtTree}
 
 	if err != nil {
 		return nil, err

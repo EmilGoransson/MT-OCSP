@@ -5,6 +5,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"math/big"
 	"time"
 )
@@ -21,8 +22,11 @@ func NewKeyPair(bits int) (*rsa.PrivateKey, error) {
 	}
 	return caPrivateKey, nil
 }
-func NewRootCertificateAndKey() (*CertObject, error) {
-	pKey, err := NewKeyPair(2048)
+func NewRootCertificateAndKey(keyLength int) (*CertObject, error) {
+	if keyLength < 2048 {
+		return nil, errors.New("bad key length")
+	}
+	pKey, err := NewKeyPair(keyLength)
 	if err != nil {
 		return nil, err
 	}
@@ -57,14 +61,25 @@ func NewRandomCertificate(pkey *rsa.PrivateKey, isCa bool) ([]byte, error) {
 	}
 	return caBytes, nil
 }
-func NewListRandomCertificates() ([][]byte, error) {
+func NewListRandomCertificates(n int) ([][]byte, error) {
 	var cList [][]byte
-	for i := 0; i < 10; i++ {
+	for i := 0; i < n; i++ {
 		pKey, err := NewKeyPair(2048)
 		if err != nil {
 			return nil, err
 		}
 		cert, err := NewRandomCertificate(pKey, false)
+		cList = append(cList, cert)
+	}
+	return cList, nil
+}
+func NewListRandomCertificatesWithKey(n int, pKey *rsa.PrivateKey) ([][]byte, error) {
+	var cList [][]byte
+	for i := 0; i < n; i++ {
+		cert, err := NewRandomCertificate(pKey, false)
+		if err != nil {
+			return nil, err
+		}
 		cList = append(cList, cert)
 	}
 	return cList, nil

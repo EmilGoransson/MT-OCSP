@@ -10,7 +10,7 @@ func TestNewResponse(t *testing.T) {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
 
-	tree, err := NewCombinedTree(certs)
+	tree, err := NewCombinedTree(certs, nil)
 	if err != nil {
 		t.Fatalf("Failed to create combined tree: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestGetStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
-	tree, err := NewCombinedTree(certs)
+	tree, err := NewCombinedTree(certs, nil)
 	if err != nil {
 		t.Fatalf("Failed to create combined tree: %v", err)
 	}

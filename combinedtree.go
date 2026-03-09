@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"log/slog"
 	"time"
 
 	"github.com/celestiaorg/smt"
@@ -11,30 +12,43 @@ import (
 type CombinedTree struct {
 	root     []byte
 	date     time.Time
-	issuedMT *sortedMT
-	revSMT   *smt.SparseMerkleTree
+	issuedMT *SortedMerkleTree
+	revSMT   *SparseMerkleTree
 }
 type CombinedProof struct {
 	issueProof *merkletree.Proof
 	revProof   *smt.SparseMerkleProof
 }
 
-func NewStartTree() *CombinedTree {
+func NewEmptyTree() *CombinedTree {
 	return &CombinedTree{root: nil, date: time.Now(), issuedMT: nil, revSMT: nil}
 }
 
-// TODO: Perhaps create function that takes input blocks for MT and input blocks for SMT & adds them to tree?
-func NewCombinedTree(byteSlice [][]byte) (*CombinedTree, error) {
+// TODO: Perhaps create function that takes input blocks for MT and input blocks for SparseMerkleTree & adds them to tree?
+func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte) (*CombinedTree, error) {
 	// To be changed
-	merkle, err := NewMerkle(byteSlice)
+	if len(issuedCerts) <= 0 {
+		slog.Warn("issued cert is empty")
+	}
+	if len(revokedCerts) <= 0 {
+		slog.Warn("revoked certs initially 0, can be added later")
+	}
+
+	merkle, err := NewMerkle(issuedCerts)
 	if err != nil {
 		return nil, err
 	}
+	sparseMerkle := NewSparseMerkle()
 
 	tree := CombinedTree{
 		root:     nil,
 		issuedMT: merkle,
-		revSMT:   NewSparseMerkle(),
+		revSMT:   sparseMerkle,
+	}
+	_, err = tree.addBulkRevocationToTree(revokedCerts)
+
+	if err != nil {
+		return nil, err
 	}
 	tree.updateGlobalRoot()
 	return &tree, nil

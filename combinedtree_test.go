@@ -10,7 +10,7 @@ func TestAddBulkRevocationToTree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate random blocks: %v", err)
 	}
-	tree, err := NewCombinedTree(blocks)
+	tree, err := NewCombinedTree(blocks, nil)
 	if err != nil {
 		t.Fatalf("failed to set up test tree: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestValidateSparseMTProofs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate random blocks: %v", err)
 	}
-	tree, err := NewCombinedTree(blocks)
+	tree, err := NewCombinedTree(blocks, nil)
 	if err != nil {
 		t.Fatalf("failed to set up test tree: %v", err)
 	}

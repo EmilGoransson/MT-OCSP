@@ -11,6 +11,7 @@ const (
 	Unknown = 2
 )
 
+// TODO: Should actully contain the landmark proof
 type MerkleResponse struct {
 	status    int8
 	timestamp time.Time
@@ -25,7 +26,7 @@ func findTreeTMP(rHash []byte) (*CombinedTree, error) {
 	if err != nil {
 		return &CombinedTree{nil, time.Now(), nil, nil}, err
 	}
-	cTree, err := NewCombinedTree(dBlocks)
+	cTree, err := NewCombinedTree(dBlocks, nil)
 	// tmp
 	if err != nil {
 		return &CombinedTree{nil, time.Now(), nil, nil}, err
@@ -69,3 +70,5 @@ func getStatus(cTree *CombinedTree, hash []byte) (int8, error) {
 	}
 	return Revoked, nil
 }
+
+// Should validate proof be here or in combinedtree?
