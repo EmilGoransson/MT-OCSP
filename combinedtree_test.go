@@ -5,9 +5,6 @@ import (
 	"testing"
 )
 
-/*
-Some tests co-written using Claude 4.6 Sonnet
-*/
 func TestAddBulkRevocationToTree(t *testing.T) {
 	blocks, err := GenerateRandBlocks(10)
 	if err != nil {

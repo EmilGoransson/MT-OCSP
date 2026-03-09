@@ -7,10 +7,11 @@ import (
 	mt "github.com/txaty/go-merkletree"
 )
 
-// TODO: sort the nodes
-
 type certHash struct {
 	hash []byte
+}
+type sortedMT struct {
+	*mt.MerkleTree
 }
 
 func (t *certHash) Serialize() ([]byte, error) {
@@ -52,15 +53,24 @@ func ByteToDataBlock(b []byte) (mt.DataBlock, error) {
 	}
 	return block, nil
 }
+func (t *sortedMT) NewNonMemberProof() {
 
-// TODO: implement the function
-func has() (bool, error) {
-	// Check the tree
-	return true, nil
+}
+
+// // TEMP solution, if implemented correctly can be o(logn)?
+func (t *sortedMT) has(b []byte) (bool, error) {
+	bHash := getByteHash(b)
+	leaves := t.MerkleTree.Leaves
+	for _, leaf := range leaves {
+		if bytes.Compare(bHash, leaf) == 0 {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // NewMerkle Takes [][]byte slices as input and converts it to []Datablock
-func NewMerkle(byteBlocks [][]byte) (*mt.MerkleTree, error) {
+func NewMerkle(byteBlocks [][]byte) (*sortedMT, error) {
 
 	blocks, err := ByteSliceToDataBlock(byteBlocks)
 	if err != nil {
@@ -80,12 +90,12 @@ func NewMerkle(byteBlocks [][]byte) (*mt.MerkleTree, error) {
 		dataJ, _ := blocks[j].Serialize()
 		return bytes.Compare(dataI[:], dataJ[:]) < 0
 	})
-
 	mtTree, err := mt.New(config, blocks)
+	var tree = &sortedMT{mtTree}
 
 	if err != nil {
 		return nil, err
 	}
 
-	return mtTree, nil
+	return tree, nil
 }

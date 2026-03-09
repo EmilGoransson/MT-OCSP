@@ -50,8 +50,6 @@ func NewOCSPResponse(certHash []byte, rootHash []byte, c *CombinedTree) (*Merkle
 	status, _ = getStatus(tree, certHash)
 	proof, _ = tree.newTreeProof(certHash)
 
-	// Get the tree tree struct
-
 	return &MerkleResponse{status, time.Now(), proof}, nil
 }
 func getStatus(cTree *CombinedTree, hash []byte) (int8, error) {
@@ -59,7 +57,7 @@ func getStatus(cTree *CombinedTree, hash []byte) (int8, error) {
 	if err != nil {
 		return -1, err
 	}
-	isIssued, err := cTree.smtHas(hash)
+	isIssued, err := cTree.has(hash)
 	if err != nil {
 		return -1, err
 	}

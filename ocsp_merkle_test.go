@@ -4,9 +4,6 @@ import (
 	"testing"
 )
 
-/*
-Some tests co-written using Claude 4.6 Sonnet
-*/
 func TestNewResponse(t *testing.T) {
 	certs, err := GenerateRandBlocks(10)
 	if err != nil {

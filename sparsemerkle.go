@@ -17,6 +17,24 @@ func (sMT *SMT) has(b []byte) (bool, error) {
 	return true, nil
 }
 
+func NewSparseMerkle() *smt.SparseMerkleTree {
+	nodeStore := smt.NewSimpleMap()
+	valueStore := smt.NewSimpleMap()
+	// nodeStore.Set(getStringHash("1"), getStringHash("One"))
+	return smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())
+}
+func getStringHash(str string) []byte {
+	h := sha256.New()
+	h.Write([]byte(str))
+	return h.Sum(nil)
+}
+
+func getByteHash(bytes []byte) []byte {
+	h := sha256.New()
+	h.Write(bytes)
+	return h.Sum(nil)
+}
+
 /*
 
 func smtTest() {
@@ -97,57 +115,5 @@ func smtTest() {
 	} else {
 		fmt.Println("Proof verification failed.")
 	}
-}
-*/
-
-func NewSparseMerkle() *smt.SparseMerkleTree {
-	nodeStore := smt.NewSimpleMap()
-	valueStore := smt.NewSimpleMap()
-	// nodeStore.Set(getStringHash("1"), getStringHash("One"))
-	return smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())
-}
-func getStringHash(str string) []byte {
-	h := sha256.New()
-	h.Write([]byte(str))
-	return h.Sum(nil)
-}
-
-func getByteHash(bytes []byte) []byte {
-	h := sha256.New()
-	h.Write(bytes)
-	return h.Sum(nil)
-}
-
-/*
-
-func getRandomCert() (CertObject, error) {
-	// Generate key pair
-	caPrivKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		return CertObject{nil, nil}, errors.New("error generating key")
-	}
-
-	ca := &x509.Certificate{
-		SerialNumber: big.NewInt(2019),
-		Subject: pkix.Name{
-			Organization:  []string{"Company, INC."},
-			Country:       []string{"US"},
-			Province:      []string{""},
-			Locality:      []string{"San Francisco"},
-			StreetAddress: []string{"Golden Gate Bridge"},
-			PostalCode:    []string{"94016"},
-		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(10, 0, 0),
-		IsCA:                  true,
-		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
-		BasicConstraintsValid: true,
-	}
-	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, &caPrivKey.PublicKey, caPrivKey)
-	if err != nil {
-		return CertObject{nil, nil}, errors.New("error generating certificate")
-	}
-	return CertObject{caBytes, caPrivKey}, nil
 }
 */

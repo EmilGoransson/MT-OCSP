@@ -1,62 +1,74 @@
 package main
 
 import (
+	"crypto"
 	"fmt"
 )
 
 func main() {
+
+	// -- Build a landmark chain --
+	// Generate a CA-keypair (currently RSA, TBC)
+	keyPair, err := NewKeyPair(2048)
+
+	// Start head (empty tree) & actual tree
+	initEpoch := NewStartTree()
+
+	// Hour 0 to 1: collect issued and revoked certificates (can use NewCertificate)
+	issuedCerts := [][]byte{
+		[]byte("issued-id-001"),
+		[]byte("issued-id-002"),
+		[]byte("issued-id-003"),
+		[]byte("issued-id-004"),
+	}
 	var revokedCerts [][]byte
-
-	// Create a CA that has a self-signed root cert + private key
-	caCert, err := NewRootCertificateAndKey()
-	if err != nil {
-		panic(err)
-	}
-	fmt.Println(caCert)
-
-	// Generate a list of certificates signed by the CA.
-	cList, err := NewListRandomCertificates()
-	fmt.Println(cList)
-
-	// Add them to the issued side
-	tree, err := NewCombinedTree(cList)
-
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println(tree)
-	// Revoke some of them
-	for i, b := range cList {
-		if i%3 == 0 {
+	for i, b := range issuedCerts {
+		if i%2 == 0 {
 			revokedCerts = append(revokedCerts, b)
 		}
 	}
+	// Hour: 0-1, create a tree for the issued certs TODO: add so that the certs are signed using the CA-key
+	// TODO: add so that u can add revoked certs at the same time as issued certs
+	firstEpoch, err := NewCombinedTree(issuedCerts)
+	//  Hour: 0-1,  and add the revoked certs
+	_, err = firstEpoch.addBulkRevocationToTree(revokedCerts)
 
-	for _, rBytes := range revokedCerts {
-		_, err := tree.addRevocationToTree(rBytes)
-		if err != nil {
-			return
-		}
+	// Create a landmark for hour: 1 using initEpoch and firstEpoch
+	firstLandmark, err := NewLandmark(initEpoch, firstEpoch, crypto.SHA256, keyPair)
+
+	// TODO: Save landmark to DB or smht
+	fmt.Println("save to DB", firstLandmark)
+
+	// New iteration
+	// Hour 1 to 2: collect issued and revoked certificates
+	issuedCerts2 := [][]byte{
+		[]byte("issued-id-005"),
+		[]byte("issued-id-006"),
 	}
-	fmt.Println(tree)
+	revokedCerts2 := [][]byte{
+		[]byte("issued-id-006"),
+	}
+	// Hour: 1-2, Create a tree for the issued certs
+	secondEpoch, _ := NewCombinedTree(issuedCerts2)
+	// Hour: 1-2, add the revoked certs
+	_, _ = secondEpoch.addBulkRevocationToTree(revokedCerts2)
+	// Create second landmark
+	secondLandmark, err := NewLandmark(firstEpoch, secondEpoch, crypto.SHA256, keyPair)
 
-	// Try and generate proof for one of the certificates
-	mProof, err := tree.newMembershipProofIssued(cList[3])
+	fmt.Println("save to DB", secondLandmark)
+
+	// TODO: Save landmark to DB or smht
 	if err != nil {
-		panic(err)
+		fmt.Errorf("error creating first epoch, %w", err)
 	}
-	fmt.Println(mProof)
 
-	// Try to generate a OCSPResponse for cList[4],
-	//We have the root hash from before
-
-	res, err := NewOCSPResponse(cList[4], []byte{}, tree)
-	// Should be of status "GOOD"
+	// Generate proof for LM1
+	certToCheck := []byte("issued-id-002")
+	proof, err := firstLandmark.newLandmarkProof(certToCheck)
 	if err != nil {
-		panic(err)
+		fmt.Errorf("creating proof for issued 002 %w", err)
 	}
-	// Response Code should be "Good"
-	fmt.Println("Response Code", res.status)
-	// Is of status "Good" ** fixed the issue**
+
+	fmt.Println(proof)
+
 }
