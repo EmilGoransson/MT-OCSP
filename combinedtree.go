@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"time"
 
@@ -9,11 +8,10 @@ import (
 	"github.com/txaty/go-merkletree"
 )
 
-// TODO: How should i "scale" this? / Would this scale? -> SignedRoot is distributed, but CombinedTree is stored local by CA
 type CombinedTree struct {
 	root     []byte
 	date     time.Time
-	issuedMT *merkletree.MerkleTree
+	issuedMT *sortedMT
 	revSMT   *smt.SparseMerkleTree
 }
 type CombinedProof struct {
@@ -21,11 +19,10 @@ type CombinedProof struct {
 	revProof   *smt.SparseMerkleProof
 }
 
-// What is good practice here?
-// take head and sign using some key
-// Add to tree from list?
-// Random blocks in merkle tree
-// TODO: Figure out how to do with "input" blocks.
+func NewStartTree() *CombinedTree {
+	return &CombinedTree{root: nil, date: time.Now(), issuedMT: nil, revSMT: nil}
+}
+
 // TODO: Perhaps create function that takes input blocks for MT and input blocks for SMT & adds them to tree?
 func NewCombinedTree(byteSlice [][]byte) (*CombinedTree, error) {
 	// To be changed
@@ -39,6 +36,7 @@ func NewCombinedTree(byteSlice [][]byte) (*CombinedTree, error) {
 		issuedMT: merkle,
 		revSMT:   NewSparseMerkle(),
 	}
+	tree.updateGlobalRoot()
 	return &tree, nil
 }
 
@@ -107,16 +105,12 @@ func (c *CombinedTree) newMembershipProofIssued(b []byte) (*merkletree.Proof, er
 	return proof, nil
 }
 
-// TODO: TEMP solution, if implemented correctly can be o(nlogn)?
-func (c *CombinedTree) smtHas(b []byte) (bool, error) {
-	bHash := getByteHash(b)
-	leaves := c.issuedMT.Leaves
-	for _, leaf := range leaves {
-		if bytes.Compare(bHash, leaf) == 0 {
-			return true, nil
-		}
+func (c *CombinedTree) has(b []byte) (bool, error) {
+	has, err := c.issuedMT.has(b)
+	if err != nil {
+		return false, err
 	}
-	return false, nil
+	return has, nil
 }
 
 // TODO: Implement non membership proof in mt.merkletree
