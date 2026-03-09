@@ -53,6 +53,10 @@ func main() {
 
 	res, err := NewOCSPResponse(cList[4], []byte{}, tree)
 	// Should be of status "GOOD"
-	fmt.Println(res)
-	// Is of status "Unknown", why?
+	if err != nil {
+		panic(err)
+	}
+	// Response Code should be "Good"
+	fmt.Println("Response Code", res.status)
+	// Is of status "Good" ** fixed the issue**
 }
