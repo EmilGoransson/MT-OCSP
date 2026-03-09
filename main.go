@@ -62,4 +62,13 @@ func main() {
 		fmt.Errorf("error creating first epoch, %w", err)
 	}
 
+	// Generate proof for LM1
+	certToCheck := []byte("issued-id-002")
+	proof, err := firstLandmark.newLandmarkProof(certToCheck)
+	if err != nil {
+		fmt.Errorf("creating proof for issued 002 %w", err)
+	}
+
+	fmt.Println(proof)
+
 }

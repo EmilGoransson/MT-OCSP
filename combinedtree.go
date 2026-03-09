@@ -137,7 +137,6 @@ func (c *CombinedTree) updateGlobalRoot() {
 func (c *CombinedTree) newTreeProof(b []byte) (*CombinedProof, error) {
 	// Check if in tree
 	// Get issue proof
-
 	// Get rev proof
 	rProof, err := c.newMembershipProofRevoked(b)
 	if err != nil {
