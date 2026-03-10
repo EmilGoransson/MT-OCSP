@@ -62,18 +62,6 @@ func NewRandomCertificate(pkey *rsa.PrivateKey, isCa bool) ([]byte, error) {
 	}
 	return caBytes, nil
 }
-func NewListRandomCertificates(n int) ([][]byte, error) {
-	var cList [][]byte
-	for i := 0; i < n; i++ {
-		pKey, err := NewKeyPair(2048)
-		if err != nil {
-			return nil, err
-		}
-		cert, err := NewRandomCertificate(pKey, false)
-		cList = append(cList, cert)
-	}
-	return cList, nil
-}
 func NewListRandomCertificatesWithKey(n int, pKey *rsa.PrivateKey) ([][]byte, error) {
 	var cList [][]byte
 	for i := 0; i < n; i++ {

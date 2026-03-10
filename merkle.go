@@ -56,7 +56,7 @@ func (t *SortedMerkleTree) NewNonMemberProof() {
 
 }
 
-// // TEMP solution, if implemented correctly can be o(logn)?
+// // TEMP solution, if implemented correctly can be o(logn) prob
 func (t *SortedMerkleTree) has(b []byte) (bool, error) {
 	bHash := getByteHash(b)
 	leaves := t.MerkleTree.Leaves
@@ -83,7 +83,7 @@ func NewMerkle(byteBlocks [][]byte) (*SortedMerkleTree, error) {
 		Mode:               mt.ModeTreeBuild,
 	}
 
-	// Sort the blocks before inserting TOOD:verify they r actually getting sorted
+	// Sort the blocks before inserting
 	sort.Slice(blocks, func(i, j int) bool {
 		dataI, _ := blocks[i].Serialize()
 		dataJ, _ := blocks[j].Serialize()

@@ -5,9 +5,9 @@ import (
 )
 
 const (
-	Good    = 0
-	Revoked = 1
-	Unknown = 2
+	Good = iota
+	Revoked
+	Unknown
 )
 
 // TODO: Should actully contain the landmark proof
