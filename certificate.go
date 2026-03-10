@@ -38,8 +38,9 @@ func NewRootCertificateAndKey(keyLength int) (*CertObject, error) {
 }
 func NewRandomCertificate(pkey *rsa.PrivateKey, isCa bool) ([]byte, error) {
 	// Specify algorithm
+	r, _ := rand.Int(rand.Reader, big.NewInt(100))
 	var ca = &x509.Certificate{
-		SerialNumber: big.NewInt(2019),
+		SerialNumber: r,
 		Subject: pkix.Name{
 			Organization:  []string{"Temp Company, INC."},
 			Country:       []string{"US"},

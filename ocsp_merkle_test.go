@@ -20,7 +20,7 @@ func TestNewMerkleResponse(t *testing.T) {
 	}
 
 	t.Run("returns response for issued cert", func(t *testing.T) {
-		resp, err := NewMerkleResponse(certs[0], nil, landmark)
+		resp, err := NewMerkleResponse(certs[0], landmark)
 		if err != nil {
 			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
@@ -36,7 +36,7 @@ func TestNewMerkleResponse(t *testing.T) {
 	})
 
 	t.Run("response status is Good for issued non-revoked cert", func(t *testing.T) {
-		resp, err := NewMerkleResponse(certs[1], nil, landmark)
+		resp, err := NewMerkleResponse(certs[1], landmark)
 		if err != nil {
 			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
@@ -50,7 +50,7 @@ func TestNewMerkleResponse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to revoke cert: %v", err)
 		}
-		resp, err := NewMerkleResponse(certs[2], nil, landmark)
+		resp, err := NewMerkleResponse(certs[2], landmark)
 		if err != nil {
 			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
@@ -61,7 +61,7 @@ func TestNewMerkleResponse(t *testing.T) {
 
 	t.Run("response status is Unknown for cert not in tree", func(t *testing.T) {
 		unknownCert := []byte("cert-never-issued")
-		resp, err := NewMerkleResponse(unknownCert, nil, landmark)
+		resp, err := NewMerkleResponse(unknownCert, landmark)
 		if err != nil {
 			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}

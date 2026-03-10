@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto"
 	"fmt"
 	"testing"
@@ -21,8 +22,8 @@ func TestLandmarkChain(t *testing.T) {
 	initEpoch := NewEmptyLandmark(crypto.SHA256)
 
 	// Hour 0 to 1: collect issued and revoked certificates (can use NewCertificate)
-
-	issuedCerts, err := NewListRandomCertificatesWithKey(5, keyPair)
+	// when n = large it bugs for som e reason in debugger
+	issuedCerts, err := NewListRandomCertificatesWithKey(200, keyPair)
 	if err != nil {
 		t.Fatalf("creating cert using key %v", err)
 	}
@@ -34,30 +35,50 @@ func TestLandmarkChain(t *testing.T) {
 		}
 	}
 	// Hour: 0-1, create a tree for the issued certs
-	// TODO: add so that u can add revoked certs at the same time as issued certs
 	firstTree, err := NewCombinedTree(issuedCerts, nil)
+
+	if err != nil {
+		t.Fatalf("adding certs to tree ")
+	}
 	//  Hour: 0-1,  and add the revoked certs
-	_, err = firstEpoch.addBulkRevocationToTree(revokedCerts)
+	_, err = firstTree.addBulkRevocationToTree(revokedCerts)
 
 	// Create a landmark for hour: 1 using initEpoch and firstEpoch
 	firstLandmark, err := NewLandmark(initEpoch, firstTree, crypto.SHA256, keyPair)
 
 	// TODO: Save landmark to DB or smht
-	fmt.Println("save to DB", firstLandmark)
+	//fmt.Println("save to DB", firstLandmark)
 
 	// New iteration
 	// Hour 1 to 2: collect issued and revoked certificates
-	issuedCerts2 := [][]byte{
-		[]byte("issued-id-005"),
-		[]byte("issued-id-006"),
+	issuedCerts2, err := NewListRandomCertificatesWithKey(200, keyPair)
+	if err != nil {
+		t.Fatalf("creating cert using key %v", err)
 	}
-	revokedCerts2 := [][]byte{
-		[]byte("issued-id-006"),
+
+	var revokedCerts2 [][]byte
+	for i, b := range issuedCerts2 {
+		if i%2 == 0 {
+			revokedCerts2 = append(revokedCerts2, b)
+		}
 	}
+	fmt.Println(bytes.Compare(revokedCerts2[0], revokedCerts2[1]))
+	/*
+		this bugs out? why?
+
+			issuedCerts2 := [][]byte{
+				[]byte("issued-id-005"),
+				[]byte("issued-id-006"),
+			}
+			revokedCerts2 := [][]byte{
+				[]byte("issued-id-006"),
+			}
+	*/
 	// Hour: 1-2, Create a tree for the issued certs and add the revoked certs
-	secondEpoch, _ := NewCombinedTree(issuedCerts2, revokedCerts2)
+	secondTree, _ := NewCombinedTree(issuedCerts2, revokedCerts2)
+
 	// Create second landmark
-	secondLandmark, err := NewLandmark(firstLandmark, secondEpoch, crypto.SHA256, keyPair)
+	secondLandmark, err := NewLandmark(firstLandmark, secondTree, crypto.SHA256, keyPair)
 
 	// TODO: Save landmark to DB or smht
 	fmt.Println("save to DB", secondLandmark)
@@ -65,16 +86,28 @@ func TestLandmarkChain(t *testing.T) {
 	if err != nil {
 		fmt.Errorf("error creating first epoch, %w", err)
 	}
+	fmt.Println(secondTree)
 
 	// Generate proof for LM1
-	certToCheck := []byte("issued-id-002")
-	proof, err := firstLandmark.newLandmarkProof(certToCheck)
+	//certToCheck := []byte("issued-id-002")
+
+	// Doesnt work for some reason // still has bug
+	issuedProof, err := firstLandmark.newLandmarkProof(issuedCerts2[1])
+	if err != nil {
+		fmt.Errorf("creating proof for issued 002 %w", err)
+	}
+	revokedProof, err := firstLandmark.newLandmarkProof(issuedCerts2[0])
 	if err != nil {
 		fmt.Errorf("creating proof for issued 002 %w", err)
 	}
 
-	fmt.Println(proof)
+	fmt.Println(issuedProof)
+	fmt.Println(revokedProof)
+	responseRevoked, err := NewMerkleResponse(issuedCerts2[0], secondLandmark)
+	responseGood, err := NewMerkleResponse(issuedCerts2[1], secondLandmark)
 
+	fmt.Println(responseRevoked, responseGood)
 	// TODO: Validate the landmark proof
+	fmt.Println()
 
 }

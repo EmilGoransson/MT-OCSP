@@ -17,6 +17,7 @@ func (s *SparseMerkleTree) has(b []byte) (bool, error) {
 	return true, nil
 }
 
+// Are things hashed?
 func NewSparseMerkle() *SparseMerkleTree {
 	nodeStore := smt.NewSimpleMap()
 	valueStore := smt.NewSimpleMap()

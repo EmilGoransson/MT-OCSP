@@ -54,6 +54,7 @@ func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte) (*CombinedTree
 	return &tree, nil
 }
 
+// TODO: actually implement
 // We dont want to create a new SMT for every epoch, only append the last one
 func NewCombinedWithExistingRevocationTree(s *SparseMerkleTree, issuedCerts [][]byte, revokedCerts [][]byte) (*CombinedTree, error) {
 	// To be changed
