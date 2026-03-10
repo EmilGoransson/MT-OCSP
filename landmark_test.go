@@ -13,16 +13,20 @@ func TestLandmarkChain(t *testing.T) {
 	// Generate a CA-keypair (currently RSA, TBC)
 	ca, err := NewRootCertificateAndKey(2048)
 	if err != nil {
-		fmt.Println(err)
+		t.Fatalf("creating key or cert %v", err)
 	}
 	var keyPair = ca.pKey
 
 	// Start head (empty tree) & actual tree
-	initEpoch := NewEmptyTree()
+	initEpoch := NewEmptyLandmark(crypto.SHA256)
 
 	// Hour 0 to 1: collect issued and revoked certificates (can use NewCertificate)
 
 	issuedCerts, err := NewListRandomCertificatesWithKey(5, keyPair)
+	if err != nil {
+		t.Fatalf("creating cert using key %v", err)
+	}
+
 	var revokedCerts [][]byte
 	for i, b := range issuedCerts {
 		if i%2 == 0 {
@@ -31,12 +35,12 @@ func TestLandmarkChain(t *testing.T) {
 	}
 	// Hour: 0-1, create a tree for the issued certs
 	// TODO: add so that u can add revoked certs at the same time as issued certs
-	firstEpoch, err := NewCombinedTree(issuedCerts, nil)
+	firstTree, err := NewCombinedTree(issuedCerts, nil)
 	//  Hour: 0-1,  and add the revoked certs
 	_, err = firstEpoch.addBulkRevocationToTree(revokedCerts)
 
 	// Create a landmark for hour: 1 using initEpoch and firstEpoch
-	firstLandmark, err := NewLandmark(initEpoch, firstEpoch, crypto.SHA256, keyPair)
+	firstLandmark, err := NewLandmark(initEpoch, firstTree, crypto.SHA256, keyPair)
 
 	// TODO: Save landmark to DB or smht
 	fmt.Println("save to DB", firstLandmark)
@@ -53,7 +57,7 @@ func TestLandmarkChain(t *testing.T) {
 	// Hour: 1-2, Create a tree for the issued certs and add the revoked certs
 	secondEpoch, _ := NewCombinedTree(issuedCerts2, revokedCerts2)
 	// Create second landmark
-	secondLandmark, err := NewLandmark(firstEpoch, secondEpoch, crypto.SHA256, keyPair)
+	secondLandmark, err := NewLandmark(firstLandmark, secondEpoch, crypto.SHA256, keyPair)
 
 	// TODO: Save landmark to DB or smht
 	fmt.Println("save to DB", secondLandmark)

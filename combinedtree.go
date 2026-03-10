@@ -54,6 +54,35 @@ func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte) (*CombinedTree
 	return &tree, nil
 }
 
+// We dont want to create a new SMT for every epoch, only append the last one
+func NewCombinedWithExistingRevocationTree(s *SparseMerkleTree, issuedCerts [][]byte, revokedCerts [][]byte) (*CombinedTree, error) {
+	// To be changed
+	if len(issuedCerts) <= 0 {
+		slog.Warn("issued cert is empty")
+	}
+	if len(revokedCerts) <= 0 {
+		slog.Warn("revoked certs initially 0, can be added later")
+	}
+
+	merkle, err := NewMerkle(issuedCerts)
+	if err != nil {
+		return nil, err
+	}
+
+	tree := CombinedTree{
+		root:     nil,
+		issuedMT: merkle,
+		revSMT:   s,
+	}
+	_, err = tree.addBulkRevocationToTree(revokedCerts)
+
+	if err != nil {
+		return nil, err
+	}
+	tree.updateGlobalRoot()
+	return &tree, nil
+}
+
 // TODO: Figure out if I should store the hash vs if i should not
 func (c *CombinedTree) addRevocationToTree(value []byte) ([]byte, error) {
 	newRoot, err := c.revSMT.Update(value, value)
@@ -160,9 +189,9 @@ func (c *CombinedTree) newTreeProof(b []byte) (*CombinedProof, error) {
 	if err != nil {
 		return nil, err
 	}
-	iProof, err := c.issuedMT.Proof(dataBlock)
+	issuedProof, err := c.issuedMT.Proof(dataBlock)
 	if err != nil {
 		return nil, err
 	}
-	return &CombinedProof{issueProof: iProof, revProof: &rProof}, nil
+	return &CombinedProof{issueProof: issuedProof, revProof: &rProof}, nil
 }

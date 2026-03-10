@@ -12,7 +12,7 @@ type SparseMerkleTree struct {
 
 // TODO: does this work if i want to extend the package?
 // TODO: implement the function
-func (sMT *SparseMerkleTree) has(b []byte) (bool, error) {
+func (s *SparseMerkleTree) has(b []byte) (bool, error) {
 
 	return true, nil
 }
