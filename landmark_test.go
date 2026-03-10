@@ -92,11 +92,11 @@ func TestLandmarkChain(t *testing.T) {
 	//certToCheck := []byte("issued-id-002")
 
 	// Doesnt work for some reason // still has bug
-	issuedProof, err := firstLandmark.newLandmarkProof(issuedCerts2[1])
+	issuedProof, err := secondLandmark.newLandmarkProof(issuedCerts2[1])
 	if err != nil {
 		fmt.Errorf("creating proof for issued 002 %w", err)
 	}
-	revokedProof, err := firstLandmark.newLandmarkProof(issuedCerts2[0])
+	revokedProof, err := secondLandmark.newLandmarkProof(issuedCerts2[0])
 	if err != nil {
 		fmt.Errorf("creating proof for issued 002 %w", err)
 	}
