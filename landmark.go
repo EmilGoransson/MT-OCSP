@@ -10,39 +10,43 @@ import (
 
 // Should be PQ safe (not RSA)
 type Landmark struct {
-	signedHead []byte
-	head       []byte
-	curTree    *CombinedTree
-	lastTree   *CombinedTree
-	hashAlgo   crypto.Hash
-	date       time.Time
+	signedHead   []byte
+	head         []byte
+	curTree      *CombinedTree
+	lastLandmark *Landmark
+	hashAlgo     crypto.Hash
+	date         time.Time
 }
-type landmarkProof struct {
+type LandmarkProof struct {
 	prevUnsignedHashHead []byte
 	combinedProof        *CombinedProof
 }
 
+func NewEmptyLandmark(h crypto.Hash) *Landmark {
+	return &Landmark{signedHead: nil, head: nil, curTree: nil, lastLandmark: nil, hashAlgo: h, date: time.Now()}
+}
+
 // NewLandmark takes two combined tree trees (Last Epoch and current Epoch), hashes the two roots, and signs them.
-func NewLandmark(tLast *CombinedTree, tCur *CombinedTree, h crypto.Hash, key *rsa.PrivateKey) (*Landmark, error) {
+func NewLandmark(landmarkLast *Landmark, tCur *CombinedTree, h crypto.Hash, key *rsa.PrivateKey) (*Landmark, error) {
 	hFunc := h.HashFunc().New()
 	hFunc.Write(tCur.root)
-	hFunc.Write(tLast.root)
+	hFunc.Write(landmarkLast.head)
 	head := hFunc.Sum(nil)
 	signed, err := key.Sign(nil, head, h)
 
 	if err != nil {
 		return &Landmark{nil, nil, nil, nil, h, time.Now()}, err
 	}
-	return &Landmark{signedHead: signed, head: head, curTree: tCur, lastTree: tLast, hashAlgo: h, date: time.Now()}, nil
+	return &Landmark{signedHead: signed, head: head, curTree: tCur, lastLandmark: landmarkLast, hashAlgo: h, date: time.Now()}, nil
 }
 
-// newLandmarkProof generates a CombinedProof and landmarkProof used to prove the membership or non membership
-func (l *Landmark) newLandmarkProof(b []byte) (*landmarkProof, error) {
+// newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
+func (l *Landmark) newLandmarkProof(b []byte) (*LandmarkProof, error) {
 	proof, err := l.curTree.newTreeProof(b)
 	if err != nil {
-		return &landmarkProof{nil, nil}, err
+		return &LandmarkProof{nil, nil}, err
 	}
-	return &landmarkProof{l.lastTree.root, proof}, nil
+	return &LandmarkProof{l.lastLandmark.head, proof}, nil
 }
 
 func (l *Landmark) getDate() string {

@@ -38,8 +38,9 @@ func NewRootCertificateAndKey(keyLength int) (*CertObject, error) {
 }
 func NewRandomCertificate(pkey *rsa.PrivateKey, isCa bool) ([]byte, error) {
 	// Specify algorithm
+	r, _ := rand.Int(rand.Reader, big.NewInt(100))
 	var ca = &x509.Certificate{
-		SerialNumber: big.NewInt(2019),
+		SerialNumber: r,
 		Subject: pkix.Name{
 			Organization:  []string{"Temp Company, INC."},
 			Country:       []string{"US"},
@@ -60,18 +61,6 @@ func NewRandomCertificate(pkey *rsa.PrivateKey, isCa bool) ([]byte, error) {
 		return caBytes, err
 	}
 	return caBytes, nil
-}
-func NewListRandomCertificates(n int) ([][]byte, error) {
-	var cList [][]byte
-	for i := 0; i < n; i++ {
-		pKey, err := NewKeyPair(2048)
-		if err != nil {
-			return nil, err
-		}
-		cert, err := NewRandomCertificate(pKey, false)
-		cList = append(cList, cert)
-	}
-	return cList, nil
 }
 func NewListRandomCertificatesWithKey(n int, pKey *rsa.PrivateKey) ([][]byte, error) {
 	var cList [][]byte

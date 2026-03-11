@@ -1,24 +1,28 @@
 package main
 
 import (
+	"crypto"
 	"testing"
 )
 
-func TestNewResponse(t *testing.T) {
+func TestNewMerkleResponse(t *testing.T) {
+
 	certs, err := GenerateRandBlocks(10)
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
-
+	ca, _ := NewRootCertificateAndKey(2048)
 	tree, err := NewCombinedTree(certs, nil)
+	initLandmark := NewEmptyLandmark(crypto.SHA256)
+	landmark, err := NewLandmark(initLandmark, tree, crypto.SHA256, ca.pKey)
 	if err != nil {
 		t.Fatalf("Failed to create combined tree: %v", err)
 	}
 
 	t.Run("returns response for issued cert", func(t *testing.T) {
-		resp, err := NewOCSPResponse(certs[0], nil, tree)
+		resp, err := NewMerkleResponse(certs[0], landmark)
 		if err != nil {
-			t.Fatalf("NewOCSPResponse() returned error: %v", err)
+			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
 		if resp == nil {
 			t.Fatal("Expected non-nil response")
@@ -32,9 +36,9 @@ func TestNewResponse(t *testing.T) {
 	})
 
 	t.Run("response status is Good for issued non-revoked cert", func(t *testing.T) {
-		resp, err := NewOCSPResponse(certs[1], nil, tree)
+		resp, err := NewMerkleResponse(certs[1], landmark)
 		if err != nil {
-			t.Fatalf("NewOCSPResponse() returned error: %v", err)
+			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
 		if resp.status != Good {
 			t.Errorf("Expected status Good (%d), got %d", Good, resp.status)
@@ -46,9 +50,9 @@ func TestNewResponse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to revoke cert: %v", err)
 		}
-		resp, err := NewOCSPResponse(certs[2], nil, tree)
+		resp, err := NewMerkleResponse(certs[2], landmark)
 		if err != nil {
-			t.Fatalf("NewOCSPResponse() returned error: %v", err)
+			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
 		if resp.status != Revoked {
 			t.Errorf("Expected status Revoked (%d), got %d", Revoked, resp.status)
@@ -57,9 +61,9 @@ func TestNewResponse(t *testing.T) {
 
 	t.Run("response status is Unknown for cert not in tree", func(t *testing.T) {
 		unknownCert := []byte("cert-never-issued")
-		resp, err := NewOCSPResponse(unknownCert, nil, tree)
+		resp, err := NewMerkleResponse(unknownCert, landmark)
 		if err != nil {
-			t.Fatalf("NewOCSPResponse() returned error: %v", err)
+			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
 		if resp.status != Unknown {
 			t.Errorf("Expected status Unknown (%d), got %d", Unknown, resp.status)
