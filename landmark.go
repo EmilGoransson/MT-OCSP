@@ -37,6 +37,7 @@ func NewLandmark(landmarkLast *Landmark, tCur *CombinedTree, h crypto.Hash, key 
 	if err != nil {
 		return &Landmark{nil, nil, nil, nil, h, time.Now()}, err
 	}
+
 	return &Landmark{signedHead: signed, head: head, curTree: tCur, lastLandmark: landmarkLast, hashAlgo: h, date: time.Now()}, nil
 }
 

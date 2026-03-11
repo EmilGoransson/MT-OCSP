@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/sha256"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/celestiaorg/smt"
@@ -27,12 +26,7 @@ func NewEmptyTree() *CombinedTree {
 
 // TODO: Perhaps create function that takes input blocks for MT and input blocks for SparseMerkleTree & adds them to tree?
 func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, lastSMT *SparseMerkleTree) (*CombinedTree, error) {
-	if len(issuedCerts) <= 0 {
-		slog.Warn("issued cert is empty")
-	}
-	if len(revokedCerts) <= 0 {
-		slog.Warn("revoked certs initially 0, can be added later")
-	}
+	
 	var newSMT *SparseMerkleTree
 	merkle, err := NewMerkle(issuedCerts)
 	if err != nil {

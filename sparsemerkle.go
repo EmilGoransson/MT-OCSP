@@ -21,6 +21,25 @@ func NewSparseMerkle() *SparseMerkleTree {
 	return &SparseMerkleTree{nil, smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())}
 }
 
+func (s *SparseMerkleTree) Root() []byte {
+	if s.SparseMerkleTree != nil {
+		return s.SparseMerkleTree.Root()
+	}
+	return s.hash
+}
+
+func (s *SparseMerkleTree) Freeze() *SparseMerkleTree {
+	if s.SparseMerkleTree != nil {
+		return &SparseMerkleTree{
+			hash:             s.SparseMerkleTree.Root(),
+			SparseMerkleTree: nil,
+		}
+	}
+	return &SparseMerkleTree{
+		hash:             s.hash,
+		SparseMerkleTree: nil,
+	}
+}
 func getByteHash(bytes []byte) []byte {
 	h := sha256.New()
 	h.Write(bytes)
