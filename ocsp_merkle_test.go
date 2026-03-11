@@ -12,7 +12,7 @@ func TestNewMerkleResponse(t *testing.T) {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
 	ca, _ := NewRootCertificateAndKey(2048)
-	tree, err := NewCombinedTree(certs, nil)
+	tree, err := NewCombinedTree(certs, nil, nil)
 	initLandmark := NewEmptyLandmark(crypto.SHA256)
 	landmark, err := NewLandmark(initLandmark, tree, crypto.SHA256, ca.pKey)
 	if err != nil {
@@ -76,7 +76,7 @@ func TestGetStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
-	tree, err := NewCombinedTree(certs, nil)
+	tree, err := NewCombinedTree(certs, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create combined tree: %v", err)
 	}

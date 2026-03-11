@@ -52,6 +52,8 @@ func ByteToDataBlock(b []byte) (mt.DataBlock, error) {
 	}
 	return block, nil
 }
+
+// TODO:
 func (t *SortedMerkleTree) NewNonMemberProof() {
 
 }

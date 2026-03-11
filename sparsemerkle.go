@@ -7,27 +7,18 @@ import (
 )
 
 type SparseMerkleTree struct {
+	hash []byte
 	*smt.SparseMerkleTree
 }
 
 // TODO: does this work if i want to extend the package?
 // TODO: implement the function
-func (s *SparseMerkleTree) has(b []byte) (bool, error) {
 
-	return true, nil
-}
-
-// Are things hashed?
 func NewSparseMerkle() *SparseMerkleTree {
 	nodeStore := smt.NewSimpleMap()
 	valueStore := smt.NewSimpleMap()
 	// nodeStore.Set(getStringHash("1"), getStringHash("One"))
-	return &SparseMerkleTree{smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())}
-}
-func getStringHash(str string) []byte {
-	h := sha256.New()
-	h.Write([]byte(str))
-	return h.Sum(nil)
+	return &SparseMerkleTree{nil, smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())}
 }
 
 func getByteHash(bytes []byte) []byte {

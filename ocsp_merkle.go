@@ -23,12 +23,12 @@ func findTreeTMP(rHash []byte) (*CombinedTree, error) {
 	// tmp
 	dBlocks, err := GenerateRandBlocks(10)
 	if err != nil {
-		return &CombinedTree{nil, time.Now(), nil, nil}, err
+		return &CombinedTree{root: nil, date: time.Now(), issuedMT: nil}, err
 	}
-	cTree, err := NewCombinedTree(dBlocks, nil)
+	cTree, err := NewCombinedTree(dBlocks, nil, nil)
 	// tmp
 	if err != nil {
-		return &CombinedTree{nil, time.Now(), nil, nil}, err
+		return &CombinedTree{root: nil, date: time.Now(), issuedMT: nil}, err
 	}
 	return cTree, nil
 }

@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"log/slog"
 	"time"
 
@@ -25,66 +26,39 @@ func NewEmptyTree() *CombinedTree {
 }
 
 // TODO: Perhaps create function that takes input blocks for MT and input blocks for SparseMerkleTree & adds them to tree?
-func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte) (*CombinedTree, error) {
-	// To be changed
+func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, lastSMT *SparseMerkleTree) (*CombinedTree, error) {
 	if len(issuedCerts) <= 0 {
 		slog.Warn("issued cert is empty")
 	}
 	if len(revokedCerts) <= 0 {
 		slog.Warn("revoked certs initially 0, can be added later")
 	}
-
+	var newSMT *SparseMerkleTree
 	merkle, err := NewMerkle(issuedCerts)
 	if err != nil {
 		return nil, err
 	}
-	sparseMerkle := NewSparseMerkle()
-
-	tree := CombinedTree{
+	// If there is a previous SMT, we want to build on top of that
+	if lastSMT != nil {
+		newSMT = lastSMT
+	} else {
+		newSMT = NewSparseMerkle()
+	}
+	tree := &CombinedTree{
 		root:     nil,
 		issuedMT: merkle,
-		revSMT:   sparseMerkle,
+		revSMT:   newSMT,
 	}
 	_, err = tree.addBulkRevocationToTree(revokedCerts)
 
 	if err != nil {
 		return nil, err
 	}
+
 	tree.updateGlobalRoot()
-	return &tree, nil
+	return tree, nil
 }
 
-// TODO: actually implement
-// We dont want to create a new SMT for every epoch, only append the last one
-func NewCombinedWithExistingRevocationTree(s *SparseMerkleTree, issuedCerts [][]byte, revokedCerts [][]byte) (*CombinedTree, error) {
-	// To be changed
-	if len(issuedCerts) <= 0 {
-		slog.Warn("issued cert is empty")
-	}
-	if len(revokedCerts) <= 0 {
-		slog.Warn("revoked certs initially 0, can be added later")
-	}
-
-	merkle, err := NewMerkle(issuedCerts)
-	if err != nil {
-		return nil, err
-	}
-
-	tree := CombinedTree{
-		root:     nil,
-		issuedMT: merkle,
-		revSMT:   s,
-	}
-	_, err = tree.addBulkRevocationToTree(revokedCerts)
-
-	if err != nil {
-		return nil, err
-	}
-	tree.updateGlobalRoot()
-	return &tree, nil
-}
-
-// TODO: Figure out if I should store the hash vs if i should not
 func (c *CombinedTree) addRevocationToTree(value []byte) ([]byte, error) {
 	newRoot, err := c.revSMT.Update(value, value)
 	if err != nil {
@@ -93,10 +67,15 @@ func (c *CombinedTree) addRevocationToTree(value []byte) ([]byte, error) {
 	c.updateGlobalRoot()
 	return newRoot, nil
 }
+
+// Warns on overwrite
 func (c *CombinedTree) addBulkRevocationToTree(values [][]byte) ([]byte, error) {
 	var newRoot []byte
-	var err error
 	for _, value := range values {
+		in, err := c.revSMT.Has(value)
+		if in {
+			fmt.Println("overwriting existing hash-value")
+		}
 		newRoot, err = c.revSMT.Update(value, value)
 		if err != nil {
 			return nil, err
@@ -142,11 +121,7 @@ func (c *CombinedTree) newMembershipProofIssued(b []byte) (*merkletree.Proof, er
 		return nil, err
 	}
 
-	proof, err := c.issuedMT.Proof(dataBlock)
-	if err != nil {
-		return nil, err
-	}
-	return proof, nil
+	return c.issuedMT.Proof(dataBlock)
 }
 
 func (c *CombinedTree) has(b []byte) (bool, error) {

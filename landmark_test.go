@@ -21,9 +21,11 @@ func TestLandmarkChain(t *testing.T) {
 	if initEpoch == nil {
 		t.Fatal("expected initEpoch to not be nil")
 	}
+	// Create a "global" revocation-tree
+	revokedTree := NewSparseMerkle()
 
 	// Hour 0 to 1: collect issued and revoked certificates
-	issuedCerts, err := NewListRandomCertificatesWithKey(50, keyPair)
+	issuedCerts, err := NewListRandomCertificatesWithKey(20, keyPair)
 	if err != nil {
 		t.Fatalf("creating certs using key: %v", err)
 	}
@@ -35,8 +37,8 @@ func TestLandmarkChain(t *testing.T) {
 		}
 	}
 
-	// Create a tree for the issued certs and add the revoked certs
-	firstTree, err := NewCombinedTree(issuedCerts, revokedCerts)
+	// Create a tree for the issued certs  & pass in the previously created revocation-tree
+	firstTree, err := NewCombinedTree(issuedCerts, revokedCerts, revokedTree)
 	if err != nil {
 		t.Fatalf("adding certs to first tree: %v", err)
 	}
@@ -59,6 +61,9 @@ func TestLandmarkChain(t *testing.T) {
 		}
 	})
 
+	// To be distributed
+	// fmt.Println(firstLandmark.signedHead)
+
 	// Hour 1 to 2: collect issued and revoked certificates
 	issuedCerts2, err := NewListRandomCertificatesWithKey(50, keyPair)
 	if err != nil {
@@ -71,8 +76,7 @@ func TestLandmarkChain(t *testing.T) {
 			revokedCerts2 = append(revokedCerts2, b)
 		}
 	}
-
-	secondTree, err := NewCombinedTree(issuedCerts2, revokedCerts2)
+	secondTree, err := NewCombinedTree(issuedCerts2, revokedCerts2, firstTree.revSMT)
 	if err != nil {
 		t.Fatalf("adding certs to second tree: %v", err)
 	}
@@ -82,6 +86,11 @@ func TestLandmarkChain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating second landmark: %v", err)
 	}
+	t.Run("Importing old revocation", func(t *testing.T) {
+		if inTree, _ := secondLandmark.curTree.revSMT.Has(issuedCerts[0]); !inTree {
+			t.Fatalf("Certificate from first epoch expected to be in tree")
+		}
+	})
 
 	t.Run("Second Landmark Integrity", func(t *testing.T) {
 		if secondLandmark.lastLandmark != firstLandmark {

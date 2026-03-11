@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
+	"fmt"
 	"math/big"
 	"time"
 )
@@ -42,12 +43,12 @@ func NewRandomCertificate(pkey *rsa.PrivateKey, isCa bool) ([]byte, error) {
 	var ca = &x509.Certificate{
 		SerialNumber: r,
 		Subject: pkix.Name{
-			Organization:  []string{"Temp Company, INC."},
-			Country:       []string{"US"},
-			Province:      []string{""},
-			Locality:      []string{"San Francisco"},
-			StreetAddress: []string{"Golden Gate Bridge"},
-			PostalCode:    []string{"94016"},
+			Organization:  []string{randomString(10)},
+			Country:       []string{randomString(10)},
+			Province:      []string{randomString(10)},
+			Locality:      []string{randomString(10)},
+			StreetAddress: []string{randomString(10)},
+			PostalCode:    []string{randomString(5)},
 		},
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
@@ -61,6 +62,11 @@ func NewRandomCertificate(pkey *rsa.PrivateKey, isCa bool) ([]byte, error) {
 		return caBytes, err
 	}
 	return caBytes, nil
+}
+func randomString(length int) string {
+	b := make([]byte, length+2)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)[2 : length+2]
 }
 func NewListRandomCertificatesWithKey(n int, pKey *rsa.PrivateKey) ([][]byte, error) {
 	var cList [][]byte
