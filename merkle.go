@@ -72,7 +72,6 @@ func (t *SortedMerkleTree) has(b []byte) (bool, error) {
 
 // NewMerkle Takes [][]byte slices as input and converts it to []Datablock
 func NewMerkle(byteBlocks [][]byte) (*SortedMerkleTree, error) {
-
 	blocks, err := ByteSliceToDataBlock(byteBlocks)
 	if err != nil {
 		return nil, err

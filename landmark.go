@@ -50,6 +50,12 @@ func (l *Landmark) newLandmarkProof(b []byte) (*LandmarkProof, error) {
 	return &LandmarkProof{l.lastLandmark.head, proof}, nil
 }
 
+// NewLandmarkProofEntireEpoch Implements issue https://github.com/EmilGoransson/MT-OCSP/issues/6
+// buildLandmarkProofChain returns a chain containing the required hashes to reconstruct the landmark-hash-chain from k to latest epoch
+func (l *Landmark) buildLandmarkProofChain() {
+
+}
+
 func (l *Landmark) getDate() string {
 	return l.date.String()
 }
