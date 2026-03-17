@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -53,9 +54,11 @@ func NewMerkleResponse(certHash []byte, l *Landmark) (*MerkleResponse, error) {
 	//tree, _ := findTreeTMP(certHash)
 	// why 2?
 
-	status, _ = getStatus(l.curTree, certHash)
-	proof, _ := l.curTree.newTreeProof(certHash)
-	p := &LandmarkProof{prevUnsignedHashHead: l.lastLandmark.head, combinedProof: proof}
+	status, _ = getStatus(l.cTree, certHash)
+	p, err := l.NewLandmarkProof(certHash)
+	if err != nil {
+		return nil, fmt.Errorf("generating proof for cert %b, %v", certHash, err)
+	}
 	return &MerkleResponse{status, time.Now(), p}, nil
 }
 
