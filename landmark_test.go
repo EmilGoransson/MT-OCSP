@@ -76,7 +76,7 @@ func TestLandmarkChain(t *testing.T) {
 	// ==========================================
 	// Freeze landmark 1 revocation-tree since we are creating a new one
 	// Calculates hash & sets smt = nil
-	landmark1.curTree.revSMT = activeRevokedTree.Freeze()
+	landmark1.cTree.revSMT = activeRevokedTree.Freeze()
 
 	// ==========================================
 	// Step 3: Epoch 2 (Hour 1 to 2)
@@ -182,5 +182,5 @@ func TestLandmarkChain(t *testing.T) {
 		}
 	})
 	// Freeze Landmark 2 (ONLY WHEN CREATING NEW EPOCH)
-	//landmark2.curTree.revSMT = activeRevokedTree.Freeze()
+	//landmark2.cTree.revSMT = activeRevokedTree.Freeze()
 }
