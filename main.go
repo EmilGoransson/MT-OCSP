@@ -1,5 +1,10 @@
 package main
 
+import "fmt"
+
 func main() {
-	LogTest()
+	err := LogTest()
+	if err != nil {
+		panic(err)
+	}
 }

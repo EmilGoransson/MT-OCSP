@@ -26,7 +26,7 @@ func NewEmptyTree() *CombinedTree {
 
 // TODO: Perhaps create function that takes input blocks for MT and input blocks for SparseMerkleTree & adds them to tree?
 func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, lastSMT *SparseMerkleTree) (*CombinedTree, error) {
-	
+
 	var newSMT *SparseMerkleTree
 	merkle, err := NewMerkle(issuedCerts)
 	if err != nil {
