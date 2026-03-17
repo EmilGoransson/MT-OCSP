@@ -19,8 +19,8 @@ type Landmark struct {
 	cTree    *CombinedTree
 }
 
-// SignedHead is distributed out of band
-type SignedHead struct {
+// SignedLandmark is distributed out of band
+type SignedLandmark struct {
 	signedHashData []byte
 	logRoot        []byte
 	logSize        uint64
@@ -51,7 +51,7 @@ func NewLandmark(l *AppendLog, c *CombinedTree) (*Landmark, error) {
 }
 
 // NewSignedHead hashes together data and signs the hash
-func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedHead, error) {
+func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandmark, error) {
 	// Signs the hash of (RootHash + TreeSize + Date
 	hasher := h.New()
 	rootHash, err := l.log.RootHash()
@@ -74,7 +74,7 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedHead,
 	if err != nil {
 		return nil, fmt.Errorf("signing data, %v", err)
 	}
-	return &SignedHead{
+	return &SignedLandmark{
 		signedHashData: signedHash,
 		logRoot:        rootHash,
 		logSize:        size,

@@ -28,29 +28,35 @@ Basic Flow
 ```
 // Distributed out of band
 SignedLandmark {
-     SignedData      // (RootHash + TreeSize + Date)
-     RootHash        // Append-log root hash
-     TreeSize        // Needed to calculate proof
-     Date            // Timestamp    
+     SignedData         // hashed & signed (RootHash + TreeSize + Date)
+     LogRoot            // Append-log root hash
+     LogSize            // Needed to calculate proof
+     Date               // Timestamp    
    }
 ```
 
 
 ```
 // Proof sent as part of response to OCSPRequest
-OCSPProof {
-    TimeSent        // timestamp generated
-    Epoch           // What epoch / landmark nr
-    CombinedProof   // IssueProof + RevProof
-    LogProof        // Append-log proof  
+LandmarkProof {
+    LogProof            // Append-log proof  
+    LogIndex            // What epoch / landmark nr
+    CombinedProof       // IssueProof + RevProof
   }
 ```
+
 
 
 ```
 // Where the append-log is stored
 AppendLog {
-    treeRange      // Stores the "peeks" / Calculated root
-    nodeStore      // Stores the leaf and intermediate nodes
+    TreeRange           // Stores the "peeks" / Calculated root
+    NodeStore           // Stores the leaf and intermediate nodesw, ID -> hash
+    LeafIndexStore      // reverse Nodestore, hash -> ID
   }
 ```
+type AppendLog struct {
+treeRange      *compact.Range            // Stores the "peeks" / Calculated root
+nodeStore      map[compact.NodeID][]byte // Stores the leaf and intermediate nodes
+leafIndexStore map[string]uint64
+}
