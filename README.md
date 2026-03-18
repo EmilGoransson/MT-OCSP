@@ -19,11 +19,12 @@ What implements what / Flow
 
 ```
 Basic Flow
+- Client sends cert 
 - Client gets status + landmarkProof.
 - Depending on the status, it expects landmarkProof to contain certain stuff.
 - Good -> memberIssueProof & nonMemberRevocationProof
 - Revoked -> memberIssueProof & memberRevocationProof
-- Unknown -> nonMemberIssueProof & nonMemberRevocationProof(redundant?)
+- Unknown -> nonMemberIssueProof for the date / time the cert was issued. (Might require the user to send whole cert OR cert ID + date)
 
 ```
 // Distributed out of band

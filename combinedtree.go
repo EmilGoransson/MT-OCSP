@@ -16,6 +16,8 @@ type CombinedTree struct {
 	revSMT   *SparseMerkleTree
 }
 type CombinedProof struct {
+	issueRoot  []byte // Placeholder / temp fix
+	revRoot    []byte // Placeholder / temp fix
 	issueProof *merkletree.Proof
 	revProof   *smt.SparseMerkleProof
 }
@@ -56,7 +58,10 @@ func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, rTree *SparseM
 }
 
 func (c *CombinedTree) addRevocationToTree(value []byte) ([]byte, error) {
-	newRoot, err := c.revSMT.Update(value, value)
+	h := sha256.New()
+	h.Write(value)
+	hash := h.Sum(nil)
+	newRoot, err := c.revSMT.Update(hash, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +77,10 @@ func (c *CombinedTree) addBulkRevocationToTree(values [][]byte) ([]byte, error) 
 		if in {
 			fmt.Println("overwriting existing hash-value")
 		}
-		newRoot, err = c.revSMT.Update(value, value)
+		h := sha256.New()
+		h.Write(value)
+		hash := h.Sum(nil)
+		newRoot, err = c.revSMT.Update(hash, hash)
 		if err != nil {
 			return nil, err
 		}
@@ -172,6 +180,8 @@ func (c *CombinedTree) newTreeProof(b []byte, status int8) (*CombinedProof, erro
 	}
 	rProof, err = c.newMembershipProofRevoked(b)
 	return &CombinedProof{
+		issueRoot:  c.issuedMT.Root,
+		revRoot:    c.revSMT.hash,
 		issueProof: issuedProof,
 		revProof:   &rProof,
 	}, nil

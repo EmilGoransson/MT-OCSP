@@ -74,6 +74,10 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 	if err != nil {
 		return nil, fmt.Errorf("signing data, %v", err)
 	}
+	// Verify it
+	// err = rsa.VerifyPKCS1v15(&k.PublicKey, h, hash, signedHash)
+	// mt.Println(err)
+
 	return &SignedLandmark{
 		signedHashData: signedHash,
 		logRoot:        rootHash,
