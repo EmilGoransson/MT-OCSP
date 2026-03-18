@@ -25,16 +25,18 @@ func NewEmptyTree() *CombinedTree {
 }
 
 // TODO: Perhaps create function that takes input blocks for MT and input blocks for SparseMerkleTree & adds them to tree?
-func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, lastSMT *SparseMerkleTree) (*CombinedTree, error) {
-
+func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, rTree *SparseMerkleTree) (*CombinedTree, error) {
+	if rTree == nil {
+		return nil, fmt.Errorf("the revcation tree must be non nil")
+	}
 	var newSMT *SparseMerkleTree
 	merkle, err := NewMerkle(issuedCerts)
 	if err != nil {
 		return nil, err
 	}
 	// If there is a previous SMT, we want to build on top of that
-	if lastSMT != nil {
-		newSMT = lastSMT
+	if rTree != nil {
+		newSMT = rTree
 	} else {
 		newSMT = NewSparseMerkle()
 	}
@@ -147,21 +149,30 @@ func (c *CombinedTree) updateGlobalRoot() {
 	h.Write(c.revSMT.Root())
 	c.root = h.Sum(nil)
 }
-func (c *CombinedTree) newTreeProof(b []byte) (*CombinedProof, error) {
+func (c *CombinedTree) newTreeProof(b []byte, status int8) (*CombinedProof, error) {
 	// Check if in tree
 	// Get issue proof
 	// Get rev proof
-	rProof, err := c.newMembershipProofRevoked(b)
-	if err != nil {
-		return nil, err
+	var issuedProof *merkletree.Proof
+	var rProof smt.SparseMerkleProof
+	if status == Unknown {
+		// do smth
+		issuedProof, err := c.newNonMembershipProof(b)
+		if err != nil {
+			return nil, fmt.Errorf("creating newNonMembership proof %v, ", err)
+		}
+		return &CombinedProof{
+			issueProof: issuedProof,
+			revProof:   nil,
+		}, nil
 	}
-	dataBlock, err := ByteToDataBlock(b)
+	issuedProof, err := c.newMembershipProofIssued(b)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("fetching membershipProof, %v", err)
 	}
-	issuedProof, err := c.issuedMT.Proof(dataBlock)
-	if err != nil {
-		return nil, err
-	}
-	return &CombinedProof{issueProof: issuedProof, revProof: &rProof}, nil
+	rProof, err = c.newMembershipProofRevoked(b)
+	return &CombinedProof{
+		issueProof: issuedProof,
+		revProof:   &rProof,
+	}, nil
 }

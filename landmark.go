@@ -86,7 +86,11 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 // newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
 func (l *Landmark) NewLandmarkProof(b []byte) (*LandmarkProof, error) {
 	// Generate combinedTree Proof
-	cProof, err := l.cTree.newTreeProof(b)
+	if l.cTree.revSMT.SparseMerkleTree == nil {
+		return nil, fmt.Errorf("empty revocation, froze before generating proof")
+	}
+	status, err := getStatus(l.cTree, b)
+	cProof, err := l.cTree.newTreeProof(b, status)
 	if err != nil {
 		return &LandmarkProof{nil, 0, nil}, err
 	}
