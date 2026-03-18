@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"time"
 )
 
@@ -37,25 +38,11 @@ func findTreeTMP(rHash []byte) (*CombinedTree, error) {
 // TODO: Temp implementation, rootHash shall be given as part of the arguments
 func NewMerkleResponse(certHash []byte, l *Landmark) (*MerkleResponse, error) {
 	var status int8
-
-	/*
-	   // If we have the root (for testing / tmp implementation)
-	   	if l.curTree != nil {
-	   		proof, _ := l.curTree.newTreeProof(certHash)
-	   		status, _ = getStatus(l.curTree, certHash)
-	   		p := &LandmarkProof{prevUnsignedHashHead: l.lastLandmark.head, combinedProof: proof}
-
-	   		fmt.Println("CombinedTree not nil, testing NewMerkleResponse")
-	   		return &MerkleResponse{status, time.Now(), p}, nil
-	   	}
-	*/
-	//  else Find the matching root-hash from db or smth... (actual use, use rootHASH given in args)
-	//tree, _ := findTreeTMP(certHash)
-	// why 2?
-
-	status, _ = getStatus(l.curTree, certHash)
-	proof, _ := l.curTree.newTreeProof(certHash)
-	p := &LandmarkProof{prevUnsignedHashHead: l.lastLandmark.head, combinedProof: proof}
+	status, _ = getStatus(l.cTree, certHash)
+	p, err := l.NewLandmarkProof(certHash)
+	if err != nil {
+		return nil, fmt.Errorf("generating proof for cert, %v", err)
+	}
 	return &MerkleResponse{status, time.Now(), p}, nil
 }
 
@@ -77,5 +64,3 @@ func getStatus(cTree *CombinedTree, hash []byte) (int8, error) {
 	}
 	return Revoked, nil
 }
-
-// Should validate proof be here or in combinedtree?

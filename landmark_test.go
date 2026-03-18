@@ -1,13 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"crypto"
+
 	"testing"
 )
 
 // make into actual test
-func TestLandmarkChain(t *testing.T) {
+func TestLandmarkLog(t *testing.T) {
 	// -- Build a landmark chain --
 
 	// ==========================================
@@ -21,11 +21,12 @@ func TestLandmarkChain(t *testing.T) {
 	}
 	keyPair := ca.pKey
 
-	// Start head (empty tree)
-	initEpoch := NewEmptyLandmark(crypto.SHA256)
-	if initEpoch == nil {
-		t.Fatal("expected initEpoch to not be nil")
+	// Create an empty log
+	log, err := NewAppendLog()
+	if err != nil {
+		t.Errorf("creating empty log")
 	}
+
 	// Create a "global" revocation-tree that lives across epochs
 	activeRevokedTree := NewSparseMerkle()
 
@@ -37,7 +38,7 @@ func TestLandmarkChain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creating certs using key: %v", err)
 	}
-
+	// Revoke some of them
 	var revokedCerts [][]byte
 	for i, b := range issuedCerts {
 		if i%2 == 0 {
@@ -51,74 +52,58 @@ func TestLandmarkChain(t *testing.T) {
 		t.Fatalf("adding certs to first tree: %v", err)
 	}
 
-	landmark1, err := NewLandmark(initEpoch, firstTree, crypto.SHA256, keyPair)
+	// Now 1h has passed commit the combined tree to the append-log
+	// But first, freeze the revocation tree for firstTree
+	// idk if i should freeze
+	//firstTree.revSMT = activeRevokedTree.Freeze()
+	err = log.appendToLog(firstTree.root)
+
 	if err != nil {
-		t.Fatalf("error creating first landmark: %v", err)
+		t.Errorf("adding combinedtree to log, %v", err)
 	}
 
-	t.Run(" Epoch 1, Landmark Integrity", func(t *testing.T) {
-		if landmark1.lastLandmark != initEpoch {
-			t.Error("expected first landmark's previous landmark to be initEpoch")
-		}
-		if len(landmark1.head) == 0 {
-			t.Error("expected landmark head to be populated")
-		}
-		if len(landmark1.signedHead) == 0 {
-			t.Error("expected landmark signed head to be populated")
-		}
-	})
+	// From the issuelog and combinedtree, create a landmark
+	lm1, err := NewLandmark(log, firstTree)
+	if err != nil {
+		t.Fatalf("creating landmark")
+	}
+	// Sign the log for distribution
+	signedlm1, err := lm1.NewSignedHead(keyPair, crypto.SHA256)
 
-	// To be distributed
-	// fmt.Println(landmark1.signedHead)
-
-	// ==========================================
-	// Step 2: Freezing Epoch 1
-	// ==========================================
-	// Freeze landmark 1 revocation-tree since we are creating a new one
-	// Calculates hash & sets smt = nil
-	landmark1.curTree.revSMT = activeRevokedTree.Freeze()
-
-	// ==========================================
-	// Step 3: Epoch 2 (Hour 1 to 2)
-	// ==========================================
-	issuedCerts2, err := NewListRandomCertificatesWithKey(8, keyPair)
+	if signedlm1 == nil {
+		t.Fatalf("signedlm1 should not be nil")
+	}
+	// Stat tracking for hour 1-2
+	issuedCerts2, err := NewListRandomCertificatesWithKey(5, keyPair)
 	if err != nil {
 		t.Fatalf("creating certs using key: %v", err)
 	}
-
+	// Revoke some of them
 	var revokedCerts2 [][]byte
 	for i, b := range issuedCerts2 {
 		if i%2 == 0 {
 			revokedCerts2 = append(revokedCerts2, b)
 		}
 	}
-	// activeRevokedTree passed in here
+	// Create a new combined tree for the 2nd hour / 2nd epoch, making sure to pass the same revocation initially created
 	secondTree, err := NewCombinedTree(issuedCerts2, revokedCerts2, activeRevokedTree)
 	if err != nil {
-		t.Fatalf("adding certs to second tree: %v", err)
+		t.Fatalf("adding certs to 2nd tree: %v", err)
 	}
 
-	landmark2, err := NewLandmark(landmark1, secondTree, crypto.SHA256, keyPair)
+	err = log.appendToLog(secondTree.root)
+
 	if err != nil {
-		t.Fatalf("error creating second landmark: %v", err)
+		t.Errorf("adding combinedtree to log, %v", err)
 	}
-
-	t.Run("Second Landmark Integrity", func(t *testing.T) {
-		if landmark2.lastLandmark != landmark1 {
-			t.Error("expected second landmark's previous landmark to be landmark1")
-		}
-		if !bytes.Equal(landmark2.lastLandmark.head, landmark1.head) {
-			t.Error("expected second landmark's reference to previous head to match first landmark's head")
-		}
-	})
-	t.Run("Epoch 2, Landmark Integrity", func(t *testing.T) {
-		if landmark2.lastLandmark != landmark1 {
-			t.Error("expected second landmark's previous landmark to be landmark1")
-		}
-		if !bytes.Equal(landmark2.lastLandmark.head, landmark1.head) {
-			t.Error("expected second landmark's reference to previous head to match first landmark's head")
-		}
-	})
+	lm2, err := NewLandmark(log, secondTree)
+	if err != nil {
+		t.Error("creating landmark 2")
+	}
+	_, err = lm2.NewSignedHead(keyPair, crypto.SHA256)
+	if err != nil {
+		t.Errorf("signing head 2 %v", err)
+	}
 
 	t.Run("Epoch 2, State Persistence (Old Revocations)", func(t *testing.T) {
 		inTree, err := activeRevokedTree.Has(issuedCerts[0])
@@ -132,29 +117,25 @@ func TestLandmarkChain(t *testing.T) {
 
 	t.Run("Epoch 2, Generate Proofs", func(t *testing.T) {
 		goodCert := issuedCerts2[1]
-		issuedProof, err := landmark2.newLandmarkProof(goodCert)
+		lm2Proof, err := lm2.NewLandmarkProof(goodCert)
 		if err != nil {
 			t.Fatalf("creating proof for valid certificate: %v", err)
 		}
-		if issuedProof == nil || issuedProof.combinedProof == nil {
+		if lm2Proof.combinedProof.issueProof == nil || lm2Proof.combinedProof == nil {
 			t.Fatal("expected non-nil proof for valid certificate")
 		}
-		if !bytes.Equal(issuedProof.prevUnsignedHashHead, landmark1.head) {
-			t.Error("expected proof to contain correct previous landmark head")
-		}
-
 		revokedCert := issuedCerts2[0]
-		revokedProof, err := landmark2.newLandmarkProof(revokedCert)
+		revokedProof, err := lm2.NewLandmarkProof(revokedCert)
 		if err != nil {
 			t.Fatalf("creating proof for revoked certificate: %v", err)
 		}
 		if revokedProof == nil || revokedProof.combinedProof == nil {
-			t.Fatal("expected non-nil proof for revoked certificate")
+			t.Fatal("expected non-nil proof for revoked certificate", err)
 		}
 	})
 
 	t.Run("Epoch 2, Check Merkle Responses", func(t *testing.T) {
-		responseRevoked, err := NewMerkleResponse(issuedCerts2[0], landmark2)
+		responseRevoked, err := NewMerkleResponse(issuedCerts2[0], lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for revoked cert: %v", err)
 		}
@@ -163,7 +144,7 @@ func TestLandmarkChain(t *testing.T) {
 		}
 
 		// Test 2: Good
-		responseGood, err := NewMerkleResponse(issuedCerts2[1], landmark2)
+		responseGood, err := NewMerkleResponse(issuedCerts2[1], lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for good cert: %v", err)
 		}
@@ -173,7 +154,7 @@ func TestLandmarkChain(t *testing.T) {
 
 		// Test 3: Unknown
 		unknownCert := []byte("this-cert-was-never-issued")
-		responseUnknown, err := NewMerkleResponse(unknownCert, landmark2)
+		responseUnknown, err := NewMerkleResponse(unknownCert, lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for unknown cert: %v", err)
 		}
@@ -182,5 +163,6 @@ func TestLandmarkChain(t *testing.T) {
 		}
 	})
 	// Freeze Landmark 2 (ONLY WHEN CREATING NEW EPOCH)
-	//landmark2.curTree.revSMT = activeRevokedTree.Freeze()
+	//landmark2.cTree.revSMT = activeRevokedTree.Freeze()
+
 }

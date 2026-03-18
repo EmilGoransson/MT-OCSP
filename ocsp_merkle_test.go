@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto"
 	"testing"
 )
 
@@ -11,16 +10,15 @@ func TestNewMerkleResponse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
-	ca, _ := NewRootCertificateAndKey(2048)
-	tree, err := NewCombinedTree(certs, nil, nil)
-	initLandmark := NewEmptyLandmark(crypto.SHA256)
-	landmark, err := NewLandmark(initLandmark, tree, crypto.SHA256, ca.pKey)
-	if err != nil {
-		t.Fatalf("Failed to create combined tree: %v", err)
-	}
+	// ca, _ := NewRootCertificateAndKey(2048)
+	log, _ := NewAppendLog()
+	revokedTree := NewSparseMerkle()
+	cTree, _ := NewCombinedTree(certs, nil, revokedTree)
+	_ = log.appendToLog(cTree.root)
+	lm1, _ := NewLandmark(log, cTree)
 
 	t.Run("returns response for issued cert", func(t *testing.T) {
-		resp, err := NewMerkleResponse(certs[0], landmark)
+		resp, err := NewMerkleResponse(certs[0], lm1)
 		if err != nil {
 			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
@@ -36,7 +34,7 @@ func TestNewMerkleResponse(t *testing.T) {
 	})
 
 	t.Run("response status is Good for issued non-revoked cert", func(t *testing.T) {
-		resp, err := NewMerkleResponse(certs[1], landmark)
+		resp, err := NewMerkleResponse(certs[1], lm1)
 		if err != nil {
 			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
@@ -46,11 +44,11 @@ func TestNewMerkleResponse(t *testing.T) {
 	})
 
 	t.Run("response status is Revoked for revoked cert", func(t *testing.T) {
-		_, err := tree.addRevocationToTree(certs[2])
+		_, err := cTree.addRevocationToTree(certs[2])
 		if err != nil {
 			t.Fatalf("Failed to revoke cert: %v", err)
 		}
-		resp, err := NewMerkleResponse(certs[2], landmark)
+		resp, err := NewMerkleResponse(certs[2], lm1)
 		if err != nil {
 			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
@@ -61,7 +59,7 @@ func TestNewMerkleResponse(t *testing.T) {
 
 	t.Run("response status is Unknown for cert not in tree", func(t *testing.T) {
 		unknownCert := []byte("cert-never-issued")
-		resp, err := NewMerkleResponse(unknownCert, landmark)
+		resp, err := NewMerkleResponse(unknownCert, lm1)
 		if err != nil {
 			t.Fatalf("NewMerkleResponse() returned error: %v", err)
 		}
@@ -73,10 +71,11 @@ func TestNewMerkleResponse(t *testing.T) {
 
 func TestGetStatus(t *testing.T) {
 	certs, err := GenerateRandBlocks(10)
+	revTree := NewSparseMerkle()
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
-	tree, err := NewCombinedTree(certs, nil, nil)
+	tree, err := NewCombinedTree(certs, nil, revTree)
 	if err != nil {
 		t.Fatalf("Failed to create combined tree: %v", err)
 	}
