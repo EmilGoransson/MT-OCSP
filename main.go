@@ -17,16 +17,6 @@ var defaultMerkleConfig = &mt.Config{
 	Mode:               mt.ModeTreeBuild,
 }
 
-func HashCert(data []byte) []byte {
-	hash := sha256.Sum256(data)
-	return hash[:]
-}
-func HashList(list [][]byte) [][]byte {
-	for index, data := range list {
-		list[index] = HashCert(data)
-	}
-	return list
-}
 func main() {
 	// Manual testing
 	revokedCerts := [][]byte{
@@ -127,6 +117,8 @@ func main() {
 	hCert := h.Sum(nil)
 	block, _ := ByteToDataBlock(certToCheck)
 
+	// Move to Verify .go or something
+	// Client should import
 	switch res.status {
 	case Good:
 		block, _ := ByteToDataBlock(certToCheck)
@@ -145,7 +137,6 @@ func main() {
 	case Unknown:
 		fmt.Println("status = unknown: todo, implement this")
 		//todo, revocation proof as a non-issued proof?
-		// revProof is nil here by design, do not dereference it
 	}
 
 	// If e.g status = good,

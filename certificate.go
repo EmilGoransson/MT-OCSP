@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"errors"
@@ -14,6 +15,17 @@ import (
 type CertObject struct {
 	pKey *rsa.PrivateKey
 	cert []byte
+}
+
+func HashCert(data []byte) []byte {
+	hash := sha256.Sum256(data)
+	return hash[:]
+}
+func HashList(list [][]byte) [][]byte {
+	for index, data := range list {
+		list[index] = HashCert(data)
+	}
+	return list
 }
 
 func NewKeyPair(bits int) (*rsa.PrivateKey, error) {
