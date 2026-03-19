@@ -11,6 +11,22 @@ import (
 	mt "github.com/txaty/go-merkletree"
 )
 
+var defaultMerkleConfig = &mt.Config{
+	DisableLeafHashing: true,
+	SortSiblingPairs:   true,
+	Mode:               mt.ModeTreeBuild,
+}
+
+func HashCert(data []byte) []byte {
+	hash := sha256.Sum256(data)
+	return hash[:]
+}
+func HashList(list [][]byte) [][]byte {
+	for index, data := range list {
+		list[index] = HashCert(data)
+	}
+	return list
+}
 func main() {
 	// Manual testing
 	revokedCerts := [][]byte{
@@ -77,7 +93,7 @@ func main() {
 
 	// Wants to validate a cert, t.ex revokedCerts[0]
 	// Sent to server (revokedCerts[0] OR ID?)
-	certToCheck := revokedCerts[1]
+	certToCheck := issuedCerts[1]
 	// Makes a request -> OCSPResponder
 
 	// OCSP responder
@@ -106,21 +122,43 @@ func main() {
 	// ValidateProof() should:
 	// 1. Validate the proof of the combinedProof and make sure it is valid together with status, store the root of the calculated tree
 	// 2. Validate that the previously calculated root exists in the log using signed.logRoot
-
-	// If e.g status = good,
 	h := sha256.New()
 	h.Write(certToCheck)
 	hCert := h.Sum(nil)
 	block, _ := ByteToDataBlock(certToCheck)
+
+	switch res.status {
+	case Good:
+		block, _ := ByteToDataBlock(certToCheck)
+		verify, err := mt.Verify(block, res.proof.combinedProof.issueProof, res.proof.combinedProof.issueRoot, defaultMerkleConfig)
+		verifyRev := smt.VerifyProof(*res.proof.combinedProof.revProof, res.proof.combinedProof.revRoot, hCert, []byte{}, sha256.New())
+		fmt.Println("In issuance tree:", verify, err)
+		fmt.Println("Not in revocation tree:", verifyRev)
+
+	case Revoked:
+		block, _ := ByteToDataBlock(certToCheck)
+		verify, err := mt.Verify(block, res.proof.combinedProof.issueProof, res.proof.combinedProof.issueRoot, defaultMerkleConfig)
+		verifyRev := smt.VerifyProof(*res.proof.combinedProof.revProof, res.proof.combinedProof.revRoot, hCert, hCert, sha256.New())
+		fmt.Println("In issuance tree:", verify, err)
+		fmt.Println("In revocation tree:", verifyRev)
+
+	case Unknown:
+		fmt.Println("status = unknown: todo, implement this")
+		//todo, revocation proof as a non-issued proof?
+		// revProof is nil here by design, do not dereference it
+	}
+
+	// If e.g status = good,
+
 	// ??? why does mt.MerkleTree need a tree to verify? switch lib?
-	verify, err := mt.Verify(block, res.proof.combinedProof.issueProof, res.proof.combinedProof.issueRoot, nil)
+	verify, err := mt.Verify(block, res.proof.combinedProof.issueProof, res.proof.combinedProof.issueRoot, defaultMerkleConfig)
 	// Value = []byte{} because we got status = good (we expect the key val to point at empty)
 	verifyRev := smt.VerifyProof(*res.proof.combinedProof.revProof, res.proof.combinedProof.revRoot, hCert, []byte{}, sha256.New())
 	// The two "proof" needs their head-hash to verify against. If implemented from scratch, you could technically compare it "higher up" since on this implementation they are children och the combinedTrees root.
 	// if you calculate both verify and verifyRev up until its highest hash, and then hash both of them together, they should equal combinedTrees root hash.
 	// Bandaid fix: include the root-certs in the combinedProof.
 	fmt.Println("Certificate is in issued Tree: ", verify)
-	fmt.Println("Certificate is in revoked Tree: ", verifyRev)
+	fmt.Println("Certificate is not in rev-tree (proof is for path = nobyte []byte{}  ", verifyRev)
 	if err != nil {
 		return
 	}

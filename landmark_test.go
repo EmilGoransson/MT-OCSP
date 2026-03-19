@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto"
-
 	"testing"
 )
 
@@ -35,6 +34,7 @@ func TestLandmarkLog(t *testing.T) {
 	// ==========================================
 
 	issuedCerts, err := NewListRandomCertificatesWithKey(5, keyPair)
+	issuedCerts = HashList(issuedCerts)
 	if err != nil {
 		t.Fatalf("creating certs using key: %v", err)
 	}
@@ -52,16 +52,6 @@ func TestLandmarkLog(t *testing.T) {
 		t.Fatalf("adding certs to first tree: %v", err)
 	}
 
-	// Now 1h has passed commit the combined tree to the append-log
-	// But first, freeze the revocation tree for firstTree
-	// idk if i should freeze
-	//firstTree.revSMT = activeRevokedTree.Freeze()
-	err = log.appendToLog(firstTree.root)
-
-	if err != nil {
-		t.Errorf("adding combinedtree to log, %v", err)
-	}
-
 	// From the issuelog and combinedtree, create a landmark
 	lm1, err := NewLandmark(log, firstTree)
 	if err != nil {
@@ -75,6 +65,7 @@ func TestLandmarkLog(t *testing.T) {
 	}
 	// Stat tracking for hour 1-2
 	issuedCerts2, err := NewListRandomCertificatesWithKey(5, keyPair)
+	issuedCerts2 = HashList(issuedCerts2)
 	if err != nil {
 		t.Fatalf("creating certs using key: %v", err)
 	}
@@ -116,8 +107,7 @@ func TestLandmarkLog(t *testing.T) {
 	})
 
 	t.Run("Epoch 2, Generate Proofs", func(t *testing.T) {
-		goodCert := issuedCerts2[1]
-		lm2Proof, err := lm2.NewLandmarkProof(goodCert)
+		lm2Proof, err := lm2.NewLandmarkProof(issuedCerts2[1])
 		if err != nil {
 			t.Fatalf("creating proof for valid certificate: %v", err)
 		}
@@ -135,31 +125,34 @@ func TestLandmarkLog(t *testing.T) {
 	})
 
 	t.Run("Epoch 2, Check Merkle Responses", func(t *testing.T) {
+		// Test 1: Revoked (index 0 → even → revoked)
+		// Pass raw cert bytes; NewMerkleResponse/getStatus handle hashing internally.
 		responseRevoked, err := NewMerkleResponse(issuedCerts2[0], lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for revoked cert: %v", err)
 		}
 		if responseRevoked.status != Revoked {
-			t.Errorf("expected status Revoked, got %v", responseRevoked.status)
+			t.Errorf("expected status Revoked (%d), got %d", Revoked, responseRevoked.status)
 		}
 
-		// Test 2: Good
+		// Test 2: Good (index 1 → odd → not revoked)
 		responseGood, err := NewMerkleResponse(issuedCerts2[1], lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for good cert: %v", err)
 		}
 		if responseGood.status != Good {
-			t.Errorf("expected status Good, got %v", responseGood.status)
+			t.Errorf("expected status Good (%d), got %d", Good, responseGood.status)
 		}
 
-		// Test 3: Unknown
+		// Test 3: Unknown (never issued)
 		unknownCert := []byte("this-cert-was-never-issued")
-		responseUnknown, err := NewMerkleResponse(unknownCert, lm2)
+		hash := HashCert(unknownCert)
+		responseUnknown, err := NewMerkleResponse(hash, lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for unknown cert: %v", err)
 		}
 		if responseUnknown.status != Unknown {
-			t.Errorf("expected status Unknown, got %v", responseUnknown.status)
+			t.Errorf("expected status Unknown (%d), got %d", Unknown, responseUnknown.status)
 		}
 	})
 	// Freeze Landmark 2 (ONLY WHEN CREATING NEW EPOCH)

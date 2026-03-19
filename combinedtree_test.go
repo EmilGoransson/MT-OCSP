@@ -22,7 +22,7 @@ func TestAddBulkRevocationToTree(t *testing.T) {
 		[]byte("revoked-id-003"),
 		[]byte("revoked-id-004"),
 	}
-
+	bulkData = HashList(bulkData)
 	newRoot, err := tree.addBulkRevocationToTree(bulkData)
 	if err != nil {
 		t.Fatalf("addBulkRevocationToTree() unexpected error: %v", err)
@@ -32,7 +32,6 @@ func TestAddBulkRevocationToTree(t *testing.T) {
 	}
 
 	for _, val := range bulkData {
-		val := val
 		t.Run(string(val), func(t *testing.T) {
 			has, err := tree.revSMT.Has(val)
 			if err != nil {
@@ -63,9 +62,10 @@ func TestValidateSparseMTProofs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to set up test tree: %v", err)
 	}
-
 	revoked := []byte("revoked-credential")
+	revoked = HashCert(revoked)
 	notRevoked := []byte("valid-credential-not-revoked")
+	notRevoked = HashCert(notRevoked)
 
 	if _, err := tree.addRevocationToTree(revoked); err != nil {
 		t.Fatalf("addRevocationToTree: %v", err)

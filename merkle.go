@@ -59,11 +59,10 @@ func (t *SortedMerkleTree) NewNonMemberProof() {
 }
 
 // // TEMP solution, if implemented correctly can be o(logn) prob
-func (t *SortedMerkleTree) has(b []byte) (bool, error) {
-	bHash := getByteHash(b)
+func (t *SortedMerkleTree) has(hash []byte) (bool, error) {
 	leaves := t.MerkleTree.Leaves
 	for _, leaf := range leaves {
-		if bytes.Compare(bHash, leaf) == 0 {
+		if bytes.Compare(hash, leaf) == 0 {
 			return true, nil
 		}
 	}
@@ -79,7 +78,7 @@ func NewMerkle(byteBlocks [][]byte) (*SortedMerkleTree, error) {
 
 	config := &mt.Config{
 		// Values hashed before placed in certHash (Should we?)
-		DisableLeafHashing: false,
+		DisableLeafHashing: true,
 		SortSiblingPairs:   true,
 		Mode:               mt.ModeTreeBuild,
 	}

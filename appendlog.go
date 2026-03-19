@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 
 	"github.com/transparency-dev/merkle/compact"
@@ -24,9 +23,10 @@ func NewAppendLog() (*AppendLog, error) {
 	}, nil
 }
 
-func (a *AppendLog) appendToLog(item []byte) error {
+// appendToLog takes a Hashed value (rfc6962.DefaultHasher.HashLeaf(bytes)), and adds it to the log
+func (a *AppendLog) appendToLog(hash []byte) error {
 	// Defines "visitor" function used to save the item to the nodeStore
-	hash := rfc6962.DefaultHasher.HashLeaf(item)
+	//hash := rfc6962.DefaultHasher.HashLeaf(item)
 	saveNode := func(id compact.NodeID, hash []byte) {
 		a.nodeStore[id] = hash
 		if id.Level == 0 {
@@ -42,26 +42,31 @@ func (a *AppendLog) appendToLog(item []byte) error {
 func (a *AppendLog) getSize() (ret uint64) {
 	return a.treeRange.End()
 }
-func (a *AppendLog) findIndex(item []byte) (uint64, error) {
+
+// findIndex takes a hashed value and finds the leaf index its stored in
+func (a *AppendLog) findIndex(hash []byte) (uint64, error) {
 	// Find id from hash
-	var index uint64
 	var found bool
-	hash := rfc6962.DefaultHasher.HashLeaf(item)
-	for node, storedHash := range a.nodeStore {
-		if node.Level == 0 && bytes.Equal(hash, storedHash) {
-			index = node.Index
-			found = true
-			break
-		}
-	}
+	//hash := rfc6962.DefaultHasher.HashLeaf(item)
+	index, found := a.leafIndexStore[string(hash)]
+	/*
+		for node, storedHash := range a.nodeStore {
+			if node.Level == 0 && bytes.Equal(hash, storedHash) {
+				index = node.Index
+				found = true
+				break
+			}
+		} */
+
 	if !found {
 		return 0, fmt.Errorf("hash not found in nodeMap")
 	}
 	return index, nil
 }
 
-func (a *AppendLog) newProofFromItem(item []byte) ([][]byte, error) {
-	hash := rfc6962.DefaultHasher.HashLeaf(item)
+// newProofFromItem takes a hash, finds the index for it, and generates a proof
+func (a *AppendLog) newProofFromItem(hash []byte) ([][]byte, error) {
+	//hash := rfc6962.DefaultHasher.HashLeaf(item)
 	index, exists := a.leafIndexStore[string(hash)]
 	if !exists {
 		return nil, fmt.Errorf("hash not in leaf")
@@ -94,11 +99,11 @@ func (a *AppendLog) newProof(index uint64) ([][]byte, error) {
 	return hashProof, nil
 }
 
-// VerifyProof for (testing), should use proof.VerifyInclusion if you have the index directly for fast proof gen
-func (a *AppendLog) VerifyProof(item []byte, hashProof [][]byte) (bool, error) {
+// VerifyProof takes a hash, for (testing), should use proof.VerifyInclusion if you have the index directly for fast proof gen
+func (a *AppendLog) VerifyProof(hash []byte, hashProof [][]byte) (bool, error) {
 	// Find id from hash
 
-	index, err := a.findIndex(item)
+	index, err := a.findIndex(hash)
 	if err != nil {
 		return false, err
 	}
@@ -106,7 +111,6 @@ func (a *AppendLog) VerifyProof(item []byte, hashProof [][]byte) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("calculating root-hash, %v", err)
 	}
-	hash := rfc6962.DefaultHasher.HashLeaf(item)
 	err = proof.VerifyInclusion(rfc6962.DefaultHasher, index, a.getSize(), hash, hashProof, rootHash)
 	return err == nil, err
 }
