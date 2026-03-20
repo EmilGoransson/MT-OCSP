@@ -7,6 +7,7 @@ import (
 func TestNewMerkleResponse(t *testing.T) {
 
 	certs, err := GenerateRandBlocks(10)
+	certs = HashList(certs)
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}

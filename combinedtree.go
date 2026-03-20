@@ -16,6 +16,8 @@ type CombinedTree struct {
 	revSMT   *SparseMerkleTree
 }
 type CombinedProof struct {
+	issueRoot  []byte // Placeholder / temp fix
+	revRoot    []byte // Placeholder / temp fix
 	issueProof *merkletree.Proof
 	revProof   *smt.SparseMerkleProof
 }
@@ -55,8 +57,8 @@ func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, rTree *SparseM
 	return tree, nil
 }
 
-func (c *CombinedTree) addRevocationToTree(value []byte) ([]byte, error) {
-	newRoot, err := c.revSMT.Update(value, value)
+func (c *CombinedTree) addRevocationToTree(hash []byte) ([]byte, error) {
+	newRoot, err := c.revSMT.Update(hash, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -64,15 +66,15 @@ func (c *CombinedTree) addRevocationToTree(value []byte) ([]byte, error) {
 	return newRoot, nil
 }
 
-// Warns on overwrite
-func (c *CombinedTree) addBulkRevocationToTree(values [][]byte) ([]byte, error) {
+// addBulkRevocationToTree takes list of hashes and adds it to the tree
+func (c *CombinedTree) addBulkRevocationToTree(hashes [][]byte) ([]byte, error) {
 	var newRoot []byte
-	for _, value := range values {
-		in, err := c.revSMT.Has(value)
+	for _, hash := range hashes {
+		in, err := c.revSMT.Has(hash)
 		if in {
 			fmt.Println("overwriting existing hash-value")
 		}
-		newRoot, err = c.revSMT.Update(value, value)
+		newRoot, err = c.revSMT.Update(hash, hash)
 		if err != nil {
 			return nil, err
 		}
@@ -81,12 +83,8 @@ func (c *CombinedTree) addBulkRevocationToTree(values [][]byte) ([]byte, error) 
 	return newRoot, nil
 }
 
-func (c *CombinedTree) newMembershipProofRevoked(value []byte) (smt.SparseMerkleProof, error) {
-	proof, err := c.revSMT.Prove(value)
-	if err != nil {
-		return smt.SparseMerkleProof{}, err
-	}
-	return proof, nil
+func (c *CombinedTree) newMembershipProofRevoked(hash []byte) (smt.SparseMerkleProof, error) {
+	return c.revSMT.Prove(hash)
 }
 func (c *CombinedTree) validateSparseMTMembershipProof(proof smt.SparseMerkleProof, value []byte) (bool, error) {
 	return smt.VerifyProof(proof, c.revSMT.Root(), value, value, sha256.New()), nil
@@ -109,10 +107,11 @@ func (c *CombinedTree) validateSortedMTMembershipProof(b []byte, proof *merkletr
 	}
 	return isValid, nil
 }
-func (c *CombinedTree) newMembershipProofIssued(b []byte) (*merkletree.Proof, error) {
 
-	dataBlock, err := ByteToDataBlock(b)
+// newMembershipProofIssued takes a hash, converts it into a data block, and returns proof
+func (c *CombinedTree) newMembershipProofIssued(hash []byte) (*merkletree.Proof, error) {
 
+	dataBlock, err := ByteToDataBlock(hash)
 	if err != nil {
 		return nil, err
 	}
@@ -120,17 +119,15 @@ func (c *CombinedTree) newMembershipProofIssued(b []byte) (*merkletree.Proof, er
 	return c.issuedMT.Proof(dataBlock)
 }
 
-func (c *CombinedTree) has(b []byte) (bool, error) {
-	has, err := c.issuedMT.has(b)
-	if err != nil {
-		return false, err
-	}
-	return has, nil
+// hash takes a hash and returns a bool indicating if the tree has the value or not
+func (c *CombinedTree) has(hash []byte) (bool, error) {
+
+	return c.issuedMT.has(hash)
 }
 
 // TODO: Implement non membership proof in mt.merkletree
-func (c *CombinedTree) newNonMembershipProof(b []byte) (*merkletree.Proof, error) {
-	_, err := ByteToDataBlock(b)
+func (c *CombinedTree) newNonMembershipProof(hash []byte) (*merkletree.Proof, error) {
+	_, err := ByteToDataBlock(hash)
 
 	if err != nil {
 		return nil, err
@@ -149,7 +146,7 @@ func (c *CombinedTree) updateGlobalRoot() {
 	h.Write(c.revSMT.Root())
 	c.root = h.Sum(nil)
 }
-func (c *CombinedTree) newTreeProof(b []byte, status int8) (*CombinedProof, error) {
+func (c *CombinedTree) newTreeProof(hash []byte, status int8) (*CombinedProof, error) {
 	// Check if in tree
 	// Get issue proof
 	// Get rev proof
@@ -157,7 +154,7 @@ func (c *CombinedTree) newTreeProof(b []byte, status int8) (*CombinedProof, erro
 	var rProof smt.SparseMerkleProof
 	if status == Unknown {
 		// do smth
-		issuedProof, err := c.newNonMembershipProof(b)
+		issuedProof, err := c.newNonMembershipProof(hash)
 		if err != nil {
 			return nil, fmt.Errorf("creating newNonMembership proof %v, ", err)
 		}
@@ -166,12 +163,14 @@ func (c *CombinedTree) newTreeProof(b []byte, status int8) (*CombinedProof, erro
 			revProof:   nil,
 		}, nil
 	}
-	issuedProof, err := c.newMembershipProofIssued(b)
+	issuedProof, err := c.newMembershipProofIssued(hash)
 	if err != nil {
 		return nil, fmt.Errorf("fetching membershipProof, %v", err)
 	}
-	rProof, err = c.newMembershipProofRevoked(b)
+	rProof, err = c.newMembershipProofRevoked(hash)
 	return &CombinedProof{
+		issueRoot:  c.issuedMT.Root,
+		revRoot:    c.revSMT.Root(),
 		issueProof: issuedProof,
 		revProof:   &rProof,
 	}, nil

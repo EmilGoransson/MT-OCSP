@@ -74,6 +74,10 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 	if err != nil {
 		return nil, fmt.Errorf("signing data, %v", err)
 	}
+	// Verify it
+	// err = rsa.VerifyPKCS1v15(&k.PublicKey, h, hash, signedHash)
+	// mt.Println(err)
+
 	return &SignedLandmark{
 		signedHashData: signedHash,
 		logRoot:        rootHash,
@@ -84,24 +88,23 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 }
 
 // newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
-func (l *Landmark) NewLandmarkProof(b []byte) (*LandmarkProof, error) {
+func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	// Generate combinedTree Proof
 	if l.cTree.revSMT.SparseMerkleTree == nil {
 		return nil, fmt.Errorf("empty revocation, froze before generating proof")
 	}
-	status, err := getStatus(l.cTree, b)
-	cProof, err := l.cTree.newTreeProof(b, status)
+	status, err := getStatus(l.cTree, hash)
+	cProof, err := l.cTree.newTreeProof(hash, status)
 	if err != nil {
 		return &LandmarkProof{nil, 0, nil}, err
 	}
 	// Generate Append log proof
 	// Find hash id
-	index, err := l.log.findIndex(b)
-	logProof, err := l.log.newProof(index)
+	logProof, err := l.log.newProof(l.logIndex)
 
 	return &LandmarkProof{
 		logProof:      logProof,
-		logIndex:      index,
+		logIndex:      l.logIndex,
 		combinedProof: cProof,
 	}, nil
 }
