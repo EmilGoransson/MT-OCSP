@@ -37,7 +37,7 @@ func Verify(m *MerkleResponse, sl *SignedLandmark, hash []byte, block mt.DataBlo
 			}
 		}
 	case Unknown:
-		{ // If not issued we expect a false inclusion proof
+		{ // If not issued we expect a proof verifying the exclusion. TODO: not implemented yet
 			if verify {
 				return false, fmt.Errorf("bad proof for unknown, expected, false, got: %t ", verify)
 			}
