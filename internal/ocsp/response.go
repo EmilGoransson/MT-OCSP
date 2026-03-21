@@ -1,7 +1,8 @@
-package main
+package ocsp
 
 import (
 	"fmt"
+	"merkle-ocsp/internal/tree"
 	"time"
 )
 
@@ -20,16 +21,16 @@ type MerkleResponse struct {
 
 // TODO: ---PLACEHOLDER---
 // TODO: actually search and find the root
-func findTreeTMP(rHash []byte) (*CombinedTree, error) {
+func findTreeTMP(rHash []byte) (*tree.CombinedTree, error) {
 	// tmp
-	dBlocks, err := GenerateRandBlocks(10)
+	dBlocks, err := tree.GenerateRandBlocks(10)
 	if err != nil {
-		return &CombinedTree{root: nil, date: time.Now(), issuedMT: nil}, err
+		return &tree.CombinedTree{root: nil, date: time.Now(), issuedMT: nil}, err
 	}
-	cTree, err := NewCombinedTree(dBlocks, nil, nil)
+	cTree, err := tree.NewCombinedTree(dBlocks, nil, nil)
 	// tmp
 	if err != nil {
-		return &CombinedTree{root: nil, date: time.Now(), issuedMT: nil}, err
+		return &tree.CombinedTree{root: nil, date: time.Now(), issuedMT: nil}, err
 	}
 	return cTree, nil
 }
@@ -47,7 +48,7 @@ func NewMerkleResponse(certHash []byte, l *Landmark) (*MerkleResponse, error) {
 }
 
 // getStatus finds the status of a certificate from a *combinedTree, and returns Good = 0, Revoked = 1 or Unknown = 2
-func getStatus(cTree *CombinedTree, hash []byte) (int8, error) {
+func getStatus(cTree *tree.CombinedTree, hash []byte) (int8, error) {
 	isRevoked, err := cTree.revSMT.Has(hash)
 	if err != nil {
 		return -1, err

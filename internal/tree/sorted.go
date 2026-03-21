@@ -1,11 +1,18 @@
-package main
+package tree
 
 import (
 	"bytes"
+	"merkle-ocsp/internal/cert"
 	"sort"
 
 	mt "github.com/txaty/go-merkletree"
 )
+
+var DefaultMerkleConfig = &mt.Config{
+	DisableLeafHashing: true,
+	SortSiblingPairs:   true,
+	Mode:               mt.ModeTreeBuild,
+}
 
 type certHash struct {
 	hash []byte
@@ -18,22 +25,6 @@ func (t *certHash) Serialize() ([]byte, error) {
 	return t.hash, nil
 }
 
-func GenerateRandBlocks(size int) ([][]byte, error) {
-	var blocks [][]byte
-	for i := 0; i < size; i++ {
-		pKey, err := NewKeyPair(2048)
-		if err != nil {
-			return nil, err
-		}
-		certObj, err := NewRandomCertificate(pKey, false)
-
-		if err != nil {
-			return nil, err
-		}
-		blocks = append(blocks, certObj)
-	}
-	return blocks, nil
-}
 func ByteSliceToDataBlock(b [][]byte) ([]mt.DataBlock, error) {
 	var blocks []mt.DataBlock
 
@@ -76,20 +67,13 @@ func NewMerkle(byteBlocks [][]byte) (*SortedMerkleTree, error) {
 		return nil, err
 	}
 
-	config := &mt.Config{
-		// Values hashed before placed in certHash (Should we?)
-		DisableLeafHashing: true,
-		SortSiblingPairs:   true,
-		Mode:               mt.ModeTreeBuild,
-	}
-
 	// Sort the blocks before inserting
 	sort.Slice(blocks, func(i, j int) bool {
 		dataI, _ := blocks[i].Serialize()
 		dataJ, _ := blocks[j].Serialize()
 		return bytes.Compare(dataI[:], dataJ[:]) < 0
 	})
-	mtTree, err := mt.New(config, blocks)
+	mtTree, err := mt.New(DefaultMerkleConfig, blocks)
 	var tree = &SortedMerkleTree{mtTree}
 
 	if err != nil {

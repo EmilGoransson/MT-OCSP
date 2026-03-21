@@ -1,4 +1,4 @@
-package main
+package ocsp
 
 import (
 	"crypto/sha256"
@@ -15,7 +15,7 @@ func Verify(m *MerkleResponse, sl *SignedLandmark, hash []byte, block mt.DataBlo
 	if m == nil || m.proof == nil || m.proof.combinedProof == nil || sl == nil {
 		return false, fmt.Errorf("bad MerkleResponse")
 	}
-	verify, err := mt.Verify(block, m.proof.combinedProof.issueProof, m.proof.combinedProof.issueRoot, defaultMerkleConfig)
+	verify, err := mt.Verify(block, m.proof.combinedProof.issueProof, m.proof.combinedProof.issueRoot, main.defaultMerkleConfig)
 	if err != nil {
 		return false, fmt.Errorf("verifying issue-proof, %v", err)
 	}
@@ -59,7 +59,7 @@ func Verify(m *MerkleResponse, sl *SignedLandmark, hash []byte, block mt.DataBlo
 		sl.logSize,
 		hash,
 		m.proof.logProof,
-		sl.logRoot,
+		sl.LogRoot,
 	)
 	if err != nil {
 		return false, fmt.Errorf("log inclusion proof failed: %w", err)

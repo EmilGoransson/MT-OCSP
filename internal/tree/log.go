@@ -1,4 +1,4 @@
-package main
+package tree
 
 import (
 	"fmt"
@@ -71,11 +71,11 @@ func (a *AppendLog) newProofFromItem(hash []byte) ([][]byte, error) {
 	if !exists {
 		return nil, fmt.Errorf("hash not in leaf")
 	}
-	return a.newProof(index)
+	return a.NewProof(index)
 }
 
-// newProof generates the proof needed to prove for index from nodeStore
-func (a *AppendLog) newProof(index uint64) ([][]byte, error) {
+// NewProof generates the proof needed to prove for index from nodeStore
+func (a *AppendLog) NewProof(index uint64) ([][]byte, error) {
 	// Build the blueprint
 	blueprint, err := proof.Inclusion(index, a.getSize())
 	if err != nil {

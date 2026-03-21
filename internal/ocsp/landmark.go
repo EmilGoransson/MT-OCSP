@@ -1,4 +1,4 @@
-package main
+package ocsp
 
 import (
 	"crypto"
@@ -6,7 +6,11 @@ import (
 	"crypto/rsa"
 	"encoding/binary"
 	"fmt"
+	"merkle-ocsp/internal/tree"
 	"time"
+
+	"github.com/celestiaorg/smt"
+	"github.com/txaty/go-merkletree"
 )
 
 // TODO: How should i "scale" this? / Would this scale? -> SignedRoot is distributed, but CombinedTree is stored local by CA
@@ -14,15 +18,15 @@ import (
 // Should be PQ safe (not RSA)
 type Landmark struct {
 	date     time.Time
-	log      *AppendLog
+	log      *tree.AppendLog
 	logIndex uint64
-	cTree    *CombinedTree
+	cTree    *tree.CombinedTree
 }
 
 // SignedLandmark is distributed out of band
 type SignedLandmark struct {
-	signedHashData []byte
-	logRoot        []byte
+	SignedHashData []byte
+	LogRoot        []byte
 	logSize        uint64
 	date           time.Time
 }
@@ -33,9 +37,16 @@ type LandmarkProof struct {
 	combinedProof *CombinedProof
 }
 
+type CombinedProof struct {
+	issueRoot  []byte // Placeholder / temp fix
+	revRoot    []byte // Placeholder / temp fix
+	issueProof *merkletree.Proof
+	revProof   *smt.SparseMerkleProof
+}
+
 // TODO: use the same revocation tree as last epoch & remove it
 // NewLandmark commits a combinedTree to the log.
-func NewLandmark(l *AppendLog, c *CombinedTree) (*Landmark, error) {
+func NewLandmark(l *tree.AppendLog, c *tree.CombinedTree) (*Landmark, error) {
 	// Commit curTree and data to the log (can include timestamp if needed)
 	err := l.appendToLog(c.root)
 	if err != nil {
@@ -79,8 +90,8 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 	// mt.Println(err)
 
 	return &SignedLandmark{
-		signedHashData: signedHash,
-		logRoot:        rootHash,
+		SignedHashData: signedHash,
+		LogRoot:        rootHash,
 		logSize:        size,
 		date:           l.date,
 	}, nil
@@ -90,17 +101,42 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 // newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
 func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	// Generate combinedTree Proof
-	if l.cTree.revSMT.SparseMerkleTree == nil {
+	if l.cTree.RevSMT.SparseMerkleTree == nil {
 		return nil, fmt.Errorf("empty revocation, froze before generating proof")
 	}
 	status, err := getStatus(l.cTree, hash)
-	cProof, err := l.cTree.newTreeProof(hash, status)
+	var issuedProof *merkletree.Proof
+	var rProof smt.SparseMerkleProof
+	var cProof *CombinedProof
+	if status == Unknown {
+		issuedProof, err := l.cTree.NewNonMembershipProof(hash)
+		if err != nil {
+			return nil, fmt.Errorf("creating newNonMembership proof %v, ", err)
+		}
+		cProof = &CombinedProof{
+			issueProof: issuedProof,
+			revProof:   nil,
+		}
+	}
+
+	issuedProof, err = l.cTree.NewMembershipProofIssued(hash)
+	if err != nil {
+		return nil, fmt.Errorf("fetching membershipProof, %v", err)
+	}
+	rProof, err = l.cTree.NewMembershipProofRevoked(hash)
+	cProof = &CombinedProof{
+		issueRoot:  l.cTree.IssuedMT.Root,
+		revRoot:    l.cTree.RevSMT.Root(),
+		issueProof: issuedProof,
+		revProof:   &rProof,
+	}
+
 	if err != nil {
 		return &LandmarkProof{nil, 0, nil}, err
 	}
 	// Generate Append log proof
 	// Find hash id
-	logProof, err := l.log.newProof(l.logIndex)
+	logProof, err := l.log.NewProof(l.logIndex)
 
 	return &LandmarkProof{
 		logProof:      logProof,

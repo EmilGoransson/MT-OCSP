@@ -1,4 +1,4 @@
-package main
+package ocsp_client
 
 type OCSPRequest struct {
 }

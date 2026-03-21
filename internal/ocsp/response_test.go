@@ -1,20 +1,22 @@
-package main
+package ocsp
 
 import (
+	"merkle-ocsp/internal/cert"
+	"merkle-ocsp/internal/tree"
 	"testing"
 )
 
 func TestNewMerkleResponse(t *testing.T) {
 
-	certs, err := GenerateRandBlocks(10)
-	certs = HashList(certs)
+	certs, err := tree.GenerateRandBlocks(10)
+	certs = cert.HashList(certs)
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
 	// ca, _ := NewRootCertificateAndKey(2048)
-	log, _ := NewAppendLog()
-	revokedTree := NewSparseMerkle()
-	cTree, _ := NewCombinedTree(certs, nil, revokedTree)
+	log, _ := tree.NewAppendLog()
+	revokedTree := tree.NewSparseMerkle()
+	cTree, _ := tree.NewCombinedTree(certs, nil, revokedTree)
 	_ = log.appendToLog(cTree.root)
 	lm1, _ := NewLandmark(log, cTree)
 
@@ -71,12 +73,12 @@ func TestNewMerkleResponse(t *testing.T) {
 }
 
 func TestGetStatus(t *testing.T) {
-	certs, err := GenerateRandBlocks(10)
-	revTree := NewSparseMerkle()
+	certs, err := tree.GenerateRandBlocks(10)
+	revTree := tree.NewSparseMerkle()
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
-	tree, err := NewCombinedTree(certs, nil, revTree)
+	tree, err := tree.NewCombinedTree(certs, nil, revTree)
 	if err != nil {
 		t.Fatalf("Failed to create combined tree: %v", err)
 	}
