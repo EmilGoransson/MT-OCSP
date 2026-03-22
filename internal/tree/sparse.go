@@ -6,7 +6,7 @@ import (
 	"github.com/celestiaorg/smt"
 )
 
-type SparseMerkleTree struct {
+type Sparse struct {
 	hash []byte
 	*smt.SparseMerkleTree
 }
@@ -14,28 +14,28 @@ type SparseMerkleTree struct {
 // TODO: does this work if i want to extend the package?
 // TODO: implement the function
 
-func NewSparseMerkle() *SparseMerkleTree {
+func NewSparse() *Sparse {
 	nodeStore := smt.NewSimpleMap()
 	valueStore := smt.NewSimpleMap()
 	// nodeStore.Set(getStringHash("1"), getStringHash("One"))
-	return &SparseMerkleTree{nil, smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())}
+	return &Sparse{nil, smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())}
 }
 
-func (s *SparseMerkleTree) Root() []byte {
+func (s *Sparse) Root() []byte {
 	if s.SparseMerkleTree != nil {
 		return s.SparseMerkleTree.Root()
 	}
 	return s.hash
 }
 
-func (s *SparseMerkleTree) Freeze() *SparseMerkleTree {
+func (s *Sparse) Freeze() *Sparse {
 	if s.SparseMerkleTree != nil {
-		return &SparseMerkleTree{
+		return &Sparse{
 			hash:             s.SparseMerkleTree.Root(),
 			SparseMerkleTree: nil,
 		}
 	}
-	return &SparseMerkleTree{
+	return &Sparse{
 		hash:             s.hash,
 		SparseMerkleTree: nil,
 	}

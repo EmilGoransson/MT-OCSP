@@ -9,30 +9,24 @@ import (
 	"github.com/txaty/go-merkletree"
 )
 
-type CombinedTree struct {
-	root     []byte
+type Combined struct {
+	Root     []byte
 	date     time.Time
-	IssuedMT *SortedMerkleTree
-	RevSMT   *SparseMerkleTree
-}
-type CombinedProof struct {
-	issueRoot  []byte // Placeholder / temp fix
-	revRoot    []byte // Placeholder / temp fix
-	issueProof *merkletree.Proof
-	revProof   *smt.SparseMerkleProof
+	IssuedMT *Sorted
+	RevSMT   *Sparse
 }
 
-func NewEmptyTree() *CombinedTree {
-	return &CombinedTree{root: nil, date: time.Now(), IssuedMT: nil, RevSMT: nil}
+func NewEmptyTree() *Combined {
+	return &Combined{Root: nil, date: time.Now(), IssuedMT: nil, RevSMT: nil}
 }
 
-// TODO: Perhaps create function that takes input blocks for MT and input blocks for SparseMerkleTree & adds them to tree?
-func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, rTree *SparseMerkleTree) (*CombinedTree, error) {
+// TODO: Perhaps create function that takes input blocks for MT and input blocks for Sparse & adds them to tree?
+func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*Combined, error) {
 	if rTree == nil {
 		return nil, fmt.Errorf("the revcation tree must be non nil")
 	}
-	var newSMT *SparseMerkleTree
-	merkle, err := NewMerkle(issuedCerts)
+	var newSMT *Sparse
+	merkle, err := NewSorted(issuedCerts)
 	if err != nil {
 		return nil, err
 	}
@@ -40,14 +34,14 @@ func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, rTree *SparseM
 	if rTree != nil {
 		newSMT = rTree
 	} else {
-		newSMT = NewSparseMerkle()
+		newSMT = NewSparse()
 	}
-	tree := &CombinedTree{
-		root:     nil,
+	tree := &Combined{
+		Root:     nil,
 		IssuedMT: merkle,
 		RevSMT:   newSMT,
 	}
-	_, err = tree.addBulkRevocationToTree(revokedCerts)
+	_, err = tree.AddBulkRevocationToTree(revokedCerts)
 
 	if err != nil {
 		return nil, err
@@ -57,7 +51,7 @@ func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, rTree *SparseM
 	return tree, nil
 }
 
-func (c *CombinedTree) addRevocationToTree(hash []byte) ([]byte, error) {
+func (c *Combined) AddRevocationToTree(hash []byte) ([]byte, error) {
 	newRoot, err := c.RevSMT.Update(hash, hash)
 	if err != nil {
 		return nil, err
@@ -66,8 +60,8 @@ func (c *CombinedTree) addRevocationToTree(hash []byte) ([]byte, error) {
 	return newRoot, nil
 }
 
-// addBulkRevocationToTree takes list of hashes and adds it to the tree
-func (c *CombinedTree) addBulkRevocationToTree(hashes [][]byte) ([]byte, error) {
+// AddBulkRevocationToTree takes list of hashes and adds it to the tree
+func (c *Combined) AddBulkRevocationToTree(hashes [][]byte) ([]byte, error) {
 	var newRoot []byte
 	for _, hash := range hashes {
 		in, err := c.RevSMT.Has(hash)
@@ -83,18 +77,18 @@ func (c *CombinedTree) addBulkRevocationToTree(hashes [][]byte) ([]byte, error) 
 	return newRoot, nil
 }
 
-func (c *CombinedTree) NewMembershipProofRevoked(hash []byte) (smt.SparseMerkleProof, error) {
+func (c *Combined) NewMembershipProofRevoked(hash []byte) (smt.SparseMerkleProof, error) {
 	return c.RevSMT.Prove(hash)
 }
-func (c *CombinedTree) validateSparseMTMembershipProof(proof smt.SparseMerkleProof, value []byte) (bool, error) {
+func (c *Combined) validateSparseMTMembershipProof(proof smt.SparseMerkleProof, value []byte) (bool, error) {
 	return smt.VerifyProof(proof, c.RevSMT.Root(), value, value, sha256.New()), nil
 }
 
 // validateSparseMTNonMembershipProof expects the value to be empty if it's a Non membership proof
-func (c *CombinedTree) validateSparseMTNonMembershipProof(proof smt.SparseMerkleProof, value []byte) (bool, error) {
+func (c *Combined) validateSparseMTNonMembershipProof(proof smt.SparseMerkleProof, value []byte) (bool, error) {
 	return smt.VerifyProof(proof, c.RevSMT.Root(), value, []byte{}, sha256.New()), nil
 }
-func (c *CombinedTree) validateSortedMTMembershipProof(b []byte, proof *merkletree.Proof) (bool, error) {
+func (c *Combined) validateSortedMTMembershipProof(b []byte, proof *merkletree.Proof) (bool, error) {
 	dataBlock, err := ByteToDataBlock(b)
 
 	if err != nil {
@@ -109,7 +103,7 @@ func (c *CombinedTree) validateSortedMTMembershipProof(b []byte, proof *merkletr
 }
 
 // NewMembershipProofIssued takes a hash, converts it into a data block, and returns proof
-func (c *CombinedTree) NewMembershipProofIssued(hash []byte) (*merkletree.Proof, error) {
+func (c *Combined) NewMembershipProofIssued(hash []byte) (*merkletree.Proof, error) {
 
 	dataBlock, err := ByteToDataBlock(hash)
 	if err != nil {
@@ -119,14 +113,14 @@ func (c *CombinedTree) NewMembershipProofIssued(hash []byte) (*merkletree.Proof,
 	return c.IssuedMT.Proof(dataBlock)
 }
 
-// hash takes a hash and returns a bool indicating if the tree has the value or not
-func (c *CombinedTree) has(hash []byte) (bool, error) {
+// hash takes a hash and returns a bool indicating if the tree Has the value or not
+func (c *Combined) Has(hash []byte) (bool, error) {
 
 	return c.IssuedMT.has(hash)
 }
 
 // TODO: Implement non membership proof in mt.merkletree
-func (c *CombinedTree) NewNonMembershipProof(hash []byte) (*merkletree.Proof, error) {
+func (c *Combined) NewNonMembershipProof(hash []byte) (*merkletree.Proof, error) {
 	_, err := ByteToDataBlock(hash)
 
 	if err != nil {
@@ -136,13 +130,13 @@ func (c *CombinedTree) NewNonMembershipProof(hash []byte) (*merkletree.Proof, er
 }
 
 // Is this really possible?
-func (c *CombinedTree) addIssuanceToTree() {
+func (c *Combined) addIssuanceToTree() {
 
 	c.updateGlobalRoot()
 }
-func (c *CombinedTree) updateGlobalRoot() {
+func (c *Combined) updateGlobalRoot() {
 	h := sha256.New()
 	h.Write(c.IssuedMT.Root)
 	h.Write(c.RevSMT.Root())
-	c.root = h.Sum(nil)
+	c.Root = h.Sum(nil)
 }

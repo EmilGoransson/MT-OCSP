@@ -13,46 +13,46 @@ import (
 	"github.com/txaty/go-merkletree"
 )
 
-// TODO: How should i "scale" this? / Would this scale? -> SignedRoot is distributed, but CombinedTree is stored local by CA
+// TODO: How should i "scale" this? / Would this scale? -> SignedRoot is distributed, but Combined is stored local by CA
 
 // Should be PQ safe (not RSA)
 type Landmark struct {
 	date     time.Time
-	log      *tree.AppendLog
+	log      *tree.Log
 	logIndex uint64
-	cTree    *tree.CombinedTree
+	cTree    *tree.Combined
 }
 
 // SignedLandmark is distributed out of band
 type SignedLandmark struct {
 	SignedHashData []byte
 	LogRoot        []byte
-	logSize        uint64
-	date           time.Time
+	LogSize        uint64
+	Date           time.Time
 }
 
 type LandmarkProof struct {
 	logProof      [][]byte
 	logIndex      uint64
-	combinedProof *CombinedProof
+	CombinedProof *CombinedProof
 }
 
 type CombinedProof struct {
-	issueRoot  []byte // Placeholder / temp fix
-	revRoot    []byte // Placeholder / temp fix
-	issueProof *merkletree.Proof
-	revProof   *smt.SparseMerkleProof
+	IssueRoot  []byte // Placeholder / temp fix
+	RevRoot    []byte // Placeholder / temp fix
+	IssueProof *merkletree.Proof
+	RevProof   *smt.SparseMerkleProof
 }
 
 // TODO: use the same revocation tree as last epoch & remove it
 // NewLandmark commits a combinedTree to the log.
-func NewLandmark(l *tree.AppendLog, c *tree.CombinedTree) (*Landmark, error) {
+func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
 	// Commit curTree and data to the log (can include timestamp if needed)
-	err := l.appendToLog(c.root)
+	err := l.AppendToLog(c.Root)
 	if err != nil {
 		return nil, fmt.Errorf("adding combinedTree to log, %v", err)
 	}
-	index := l.getSize() - 1
+	index := l.Size() - 1
 	return &Landmark{
 		log:      l,
 		logIndex: index,
@@ -71,7 +71,7 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 	}
 	// Converts treesize to []byte
 	treeSizeHash := make([]byte, 8)
-	size := l.log.getSize()
+	size := l.log.Size()
 	binary.BigEndian.PutUint64(treeSizeHash, size)
 	timeHash, err := l.date.MarshalBinary()
 	if err != nil {
@@ -92,8 +92,8 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 	return &SignedLandmark{
 		SignedHashData: signedHash,
 		LogRoot:        rootHash,
-		logSize:        size,
-		date:           l.date,
+		LogSize:        size,
+		Date:           l.date,
 	}, nil
 
 }
@@ -114,8 +114,8 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 			return nil, fmt.Errorf("creating newNonMembership proof %v, ", err)
 		}
 		cProof = &CombinedProof{
-			issueProof: issuedProof,
-			revProof:   nil,
+			IssueProof: issuedProof,
+			RevProof:   nil,
 		}
 	}
 
@@ -125,10 +125,10 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	}
 	rProof, err = l.cTree.NewMembershipProofRevoked(hash)
 	cProof = &CombinedProof{
-		issueRoot:  l.cTree.IssuedMT.Root,
-		revRoot:    l.cTree.RevSMT.Root(),
-		issueProof: issuedProof,
-		revProof:   &rProof,
+		IssueRoot:  l.cTree.IssuedMT.Root,
+		RevRoot:    l.cTree.RevSMT.Root(),
+		IssueProof: issuedProof,
+		RevProof:   &rProof,
 	}
 
 	if err != nil {
@@ -141,6 +141,6 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	return &LandmarkProof{
 		logProof:      logProof,
 		logIndex:      l.logIndex,
-		combinedProof: cProof,
+		CombinedProof: cProof,
 	}, nil
 }

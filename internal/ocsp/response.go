@@ -13,47 +13,37 @@ const (
 )
 
 // TODO: Should actully contain the landmark proof
-type MerkleResponse struct {
-	status    int8
+type Response struct {
+	Status    int8
 	timestamp time.Time
-	proof     *LandmarkProof
+	Proof     *LandmarkProof
 }
 
 // TODO: ---PLACEHOLDER---
 // TODO: actually search and find the root
-func findTreeTMP(rHash []byte) (*tree.CombinedTree, error) {
-	// tmp
-	dBlocks, err := tree.GenerateRandBlocks(10)
-	if err != nil {
-		return &tree.CombinedTree{root: nil, date: time.Now(), issuedMT: nil}, err
-	}
-	cTree, err := tree.NewCombinedTree(dBlocks, nil, nil)
-	// tmp
-	if err != nil {
-		return &tree.CombinedTree{root: nil, date: time.Now(), issuedMT: nil}, err
-	}
-	return cTree, nil
+func findTreeTMP(rHash []byte) (*tree.Combined, error) {
+	return nil, nil
 }
 
 // What is included in the response?
 // TODO: Temp implementation, rootHash shall be given as part of the arguments
-func NewMerkleResponse(certHash []byte, l *Landmark) (*MerkleResponse, error) {
+func NewResponse(certHash []byte, l *Landmark) (*Response, error) {
 	var status int8
 	status, _ = getStatus(l.cTree, certHash)
 	p, err := l.NewLandmarkProof(certHash)
 	if err != nil {
 		return nil, fmt.Errorf("generating proof for cert, %v", err)
 	}
-	return &MerkleResponse{status, time.Now(), p}, nil
+	return &Response{status, time.Now(), p}, nil
 }
 
 // getStatus finds the status of a certificate from a *combinedTree, and returns Good = 0, Revoked = 1 or Unknown = 2
-func getStatus(cTree *tree.CombinedTree, hash []byte) (int8, error) {
-	isRevoked, err := cTree.revSMT.Has(hash)
+func getStatus(cTree *tree.Combined, hash []byte) (int8, error) {
+	isRevoked, err := cTree.RevSMT.Has(hash)
 	if err != nil {
 		return -1, err
 	}
-	isIssued, err := cTree.has(hash)
+	isIssued, err := cTree.Has(hash)
 	if err != nil {
 		return -1, err
 	}

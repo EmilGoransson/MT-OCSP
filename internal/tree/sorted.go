@@ -2,7 +2,6 @@ package tree
 
 import (
 	"bytes"
-	"merkle-ocsp/internal/cert"
 	"sort"
 
 	mt "github.com/txaty/go-merkletree"
@@ -17,7 +16,7 @@ var DefaultMerkleConfig = &mt.Config{
 type certHash struct {
 	hash []byte
 }
-type SortedMerkleTree struct {
+type Sorted struct {
 	*mt.MerkleTree
 }
 
@@ -45,12 +44,12 @@ func ByteToDataBlock(b []byte) (mt.DataBlock, error) {
 }
 
 // TODO:
-func (t *SortedMerkleTree) NewNonMemberProof() {
+func (t *Sorted) NewNonMemberProof() {
 
 }
 
 // // TEMP solution, if implemented correctly can be o(logn) prob
-func (t *SortedMerkleTree) has(hash []byte) (bool, error) {
+func (t *Sorted) has(hash []byte) (bool, error) {
 	leaves := t.MerkleTree.Leaves
 	for _, leaf := range leaves {
 		if bytes.Compare(hash, leaf) == 0 {
@@ -60,8 +59,8 @@ func (t *SortedMerkleTree) has(hash []byte) (bool, error) {
 	return false, nil
 }
 
-// NewMerkle Takes [][]byte slices as input and converts it to []Datablock
-func NewMerkle(byteBlocks [][]byte) (*SortedMerkleTree, error) {
+// NewSorted Takes [][]byte slices as input and converts it to []Datablock
+func NewSorted(byteBlocks [][]byte) (*Sorted, error) {
 	blocks, err := ByteSliceToDataBlock(byteBlocks)
 	if err != nil {
 		return nil, err
@@ -74,7 +73,7 @@ func NewMerkle(byteBlocks [][]byte) (*SortedMerkleTree, error) {
 		return bytes.Compare(dataI[:], dataJ[:]) < 0
 	})
 	mtTree, err := mt.New(DefaultMerkleConfig, blocks)
-	var tree = &SortedMerkleTree{mtTree}
+	var tree = &Sorted{mtTree}
 
 	if err != nil {
 		return nil, err
