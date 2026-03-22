@@ -1,4 +1,4 @@
-package main
+package cert
 
 import (
 	"crypto/rand"
@@ -13,7 +13,7 @@ import (
 )
 
 type CertObject struct {
-	pKey *rsa.PrivateKey
+	PKey *rsa.PrivateKey
 	cert []byte
 }
 

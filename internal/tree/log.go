@@ -1,4 +1,4 @@
-package main
+package tree
 
 import (
 	"fmt"
@@ -8,23 +8,23 @@ import (
 	"github.com/transparency-dev/merkle/rfc6962"
 )
 
-type AppendLog struct {
+type Log struct {
 	treeRange      *compact.Range            // Stores the "peeks" / Calculated root
 	nodeStore      map[compact.NodeID][]byte // Stores the leaf and intermediate nodes
 	leafIndexStore map[string]uint64
 }
 
-func NewAppendLog() (*AppendLog, error) {
+func NewLog() (*Log, error) {
 	factory := &compact.RangeFactory{Hash: rfc6962.DefaultHasher.HashChildren}
-	return &AppendLog{
+	return &Log{
 		treeRange:      factory.NewEmptyRange(0),
 		nodeStore:      make(map[compact.NodeID][]byte),
 		leafIndexStore: make(map[string]uint64),
 	}, nil
 }
 
-// appendToLog takes a Hashed value (rfc6962.DefaultHasher.HashLeaf(bytes)), and adds it to the log
-func (a *AppendLog) appendToLog(hash []byte) error {
+// AppendToLog takes a Hashed value (rfc6962.DefaultHasher.HashLeaf(bytes)), and adds it to the log
+func (a *Log) AppendToLog(hash []byte) error {
 	// Defines "visitor" function used to save the item to the nodeStore
 	//hash := rfc6962.DefaultHasher.HashLeaf(item)
 	saveNode := func(id compact.NodeID, hash []byte) {
@@ -39,12 +39,12 @@ func (a *AppendLog) appendToLog(hash []byte) error {
 	}
 	return nil
 }
-func (a *AppendLog) getSize() (ret uint64) {
+func (a *Log) Size() (ret uint64) {
 	return a.treeRange.End()
 }
 
-// findIndex takes a hashed value and finds the leaf index its stored in
-func (a *AppendLog) findIndex(hash []byte) (uint64, error) {
+// index takes a hashed value and finds the leaf index its stored in
+func (a *Log) index(hash []byte) (uint64, error) {
 	// Find id from hash
 	var found bool
 	//hash := rfc6962.DefaultHasher.HashLeaf(item)
@@ -65,19 +65,19 @@ func (a *AppendLog) findIndex(hash []byte) (uint64, error) {
 }
 
 // newProofFromItem takes a hash, finds the index for it, and generates a proof
-func (a *AppendLog) newProofFromItem(hash []byte) ([][]byte, error) {
+func (a *Log) newProofFromItem(hash []byte) ([][]byte, error) {
 	//hash := rfc6962.DefaultHasher.HashLeaf(item)
 	index, exists := a.leafIndexStore[string(hash)]
 	if !exists {
 		return nil, fmt.Errorf("hash not in leaf")
 	}
-	return a.newProof(index)
+	return a.NewProof(index)
 }
 
-// newProof generates the proof needed to prove for index from nodeStore
-func (a *AppendLog) newProof(index uint64) ([][]byte, error) {
+// NewProof generates the proof needed to prove for index from nodeStore
+func (a *Log) NewProof(index uint64) ([][]byte, error) {
 	// Build the blueprint
-	blueprint, err := proof.Inclusion(index, a.getSize())
+	blueprint, err := proof.Inclusion(index, a.Size())
 	if err != nil {
 		return nil, fmt.Errorf("creating blueprint for proof, %v", err)
 	}
@@ -100,10 +100,10 @@ func (a *AppendLog) newProof(index uint64) ([][]byte, error) {
 }
 
 // VerifyProof takes a hash, for (testing), should use proof.VerifyInclusion if you have the index directly for fast proof gen
-func (a *AppendLog) VerifyProof(hash []byte, hashProof [][]byte) (bool, error) {
+func (a *Log) VerifyProof(hash []byte, hashProof [][]byte) (bool, error) {
 	// Find id from hash
 
-	index, err := a.findIndex(hash)
+	index, err := a.index(hash)
 	if err != nil {
 		return false, err
 	}
@@ -111,9 +111,9 @@ func (a *AppendLog) VerifyProof(hash []byte, hashProof [][]byte) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("calculating root-hash, %v", err)
 	}
-	err = proof.VerifyInclusion(rfc6962.DefaultHasher, index, a.getSize(), hash, hashProof, rootHash)
+	err = proof.VerifyInclusion(rfc6962.DefaultHasher, index, a.Size(), hash, hashProof, rootHash)
 	return err == nil, err
 }
-func (a *AppendLog) RootHash() ([]byte, error) {
+func (a *Log) RootHash() ([]byte, error) {
 	return a.treeRange.GetRootHash(nil)
 }

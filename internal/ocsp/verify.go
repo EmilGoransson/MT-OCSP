@@ -1,8 +1,9 @@
-package main
+package ocsp
 
 import (
 	"crypto/sha256"
 	"fmt"
+	"merkle-ocsp/internal/tree"
 
 	"github.com/celestiaorg/smt"
 	"github.com/transparency-dev/merkle/proof"
@@ -10,20 +11,20 @@ import (
 	mt "github.com/txaty/go-merkletree"
 )
 
-func Verify(m *MerkleResponse, sl *SignedLandmark, hash []byte, block mt.DataBlock) (bool, error) {
+func Verify(m *Response, sl *SignedLandmark, hash []byte, block mt.DataBlock) (bool, error) {
 	// Verify CombinedProof
-	if m == nil || m.proof == nil || m.proof.combinedProof == nil || sl == nil {
-		return false, fmt.Errorf("bad MerkleResponse")
+	if m == nil || m.Proof == nil || m.Proof.CombinedProof == nil || sl == nil {
+		return false, fmt.Errorf("bad Response")
 	}
-	verify, err := mt.Verify(block, m.proof.combinedProof.issueProof, m.proof.combinedProof.issueRoot, defaultMerkleConfig)
+	verify, err := mt.Verify(block, m.Proof.CombinedProof.IssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 	if err != nil {
 		return false, fmt.Errorf("verifying issue-proof, %v", err)
 	}
-	switch m.status {
+	switch m.Status {
 	// We expect inclusion in issue-proof & exclusion (inclusion but for empty hash) in revoke proof
 	case Good:
 		{
-			notRevoked := smt.VerifyProof(*m.proof.combinedProof.revProof, m.proof.combinedProof.revRoot, hash, []byte{}, sha256.New())
+			notRevoked := smt.VerifyProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, []byte{}, sha256.New())
 			if !verify || !notRevoked {
 				return false, fmt.Errorf("bad proof for good, expected, true, true, got: %t, %t  ", verify, notRevoked)
 			}
@@ -31,7 +32,7 @@ func Verify(m *MerkleResponse, sl *SignedLandmark, hash []byte, block mt.DataBlo
 		// We expect inclusion in issue-proof & inclusion in revoke proof
 	case Revoked:
 		{
-			verifyRev := smt.VerifyProof(*m.proof.combinedProof.revProof, m.proof.combinedProof.revRoot, hash, hash, sha256.New())
+			verifyRev := smt.VerifyProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, hash, sha256.New())
 			if !verify || !verifyRev {
 				return false, fmt.Errorf("bad proof for revoked, expected, true, true, got: %t, %t  ", verify, verifyRev)
 			}
@@ -44,22 +45,22 @@ func Verify(m *MerkleResponse, sl *SignedLandmark, hash []byte, block mt.DataBlo
 		}
 	default:
 		{
-			return false, fmt.Errorf("bad status, %d", m.status)
+			return false, fmt.Errorf("bad status, %d", m.Status)
 		}
 	}
 	//Calculate the hash from issue + rev:
 	hasher := sha256.New()
-	hasher.Write(m.proof.combinedProof.issueRoot)
-	hasher.Write(m.proof.combinedProof.revRoot)
+	hasher.Write(m.Proof.CombinedProof.IssueRoot)
+	hasher.Write(m.Proof.CombinedProof.RevRoot)
 	hash = hasher.Sum(nil)
 	// use the hash to verify its inclusion in the log:
 	err = proof.VerifyInclusion(
 		rfc6962.DefaultHasher,
-		m.proof.logIndex,
-		sl.logSize,
+		m.Proof.logIndex,
+		sl.LogSize,
 		hash,
-		m.proof.logProof,
-		sl.logRoot,
+		m.Proof.logProof,
+		sl.LogRoot,
 	)
 	if err != nil {
 		return false, fmt.Errorf("log inclusion proof failed: %w", err)

@@ -6,6 +6,9 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"merkle-ocsp/internal/cert"
+	"merkle-ocsp/internal/ocsp"
+	"merkle-ocsp/internal/tree"
 
 	"github.com/celestiaorg/smt"
 	mt "github.com/txaty/go-merkletree"
@@ -27,26 +30,26 @@ func demo() {
 	}
 
 	// CA
-	//combinedTreeStore := make(map[int64]CombinedTree)
-	log, _ := NewAppendLog()
-	revocationTree := NewSparseMerkle()
-	caKey, _ := NewRootCertificateAndKey(2048)
-	certs, _ := NewListRandomCertificatesWithKey(10, caKey.pKey)
-	initTree, _ := NewCombinedTree(issuedCerts, nil, revocationTree)
+	//combinedTreeStore := make(map[int64]Combined)
+	log, _ := tree.NewLog()
+	revocationTree := tree.NewSparse()
+	caKey, _ := cert.NewRootCertificateAndKey(2048)
+	certs, _ := cert.NewListRandomCertificatesWithKey(10, caKey.PKey)
+	initTree, _ := tree.NewCombinedTree(issuedCerts, nil, revocationTree)
 	var revoked [][]byte
 	for i, cert := range certs {
 		if i%5 == 0 {
 			revoked = append(revoked, cert)
 		}
 	}
-	_, _ = initTree.addBulkRevocationToTree(revokedCerts)
+	_, _ = initTree.AddBulkRevocationToTree(revokedCerts)
 	//Store the combinedTree
 	//combinedTreeStore[0] = *initTree
-	_ = log.appendToLog(initTree.root)
+	_ = log.AppendToLog(initTree.Root)
 	// Generate landmark to publish
-	landmark, _ := NewLandmark(log, initTree)
+	landmark, _ := ocsp.NewLandmark(log, initTree)
 	// Sign the lm
-	signed, _ := landmark.NewSignedHead(caKey.pKey, crypto.SHA256)
+	signed, _ := landmark.NewSignedHead(caKey.PKey, crypto.SHA256)
 
 	// Signed sent to client
 
@@ -56,20 +59,20 @@ func demo() {
 	hasher := crypto.SHA256.New()
 	// Converts treesize to []byte
 	treeSizeHash := make([]byte, 8)
-	size := signed.logSize
+	size := signed.LogSize
 	binary.BigEndian.PutUint64(treeSizeHash, size)
-	timeHash, err := signed.date.MarshalBinary()
+	timeHash, err := signed.Date.MarshalBinary()
 	if err != nil {
 		_ = fmt.Errorf("marshaling time, %v", err)
 	}
-	hasher.Write(signed.logRoot)
+	hasher.Write(signed.LogRoot)
 	hasher.Write(treeSizeHash)
 	hasher.Write(timeHash)
 	checksum := hasher.Sum(nil)
 
-	pubKey := caKey.pKey.PublicKey
+	pubKey := caKey.PKey.PublicKey
 
-	err = rsa.VerifyPKCS1v15(&pubKey, crypto.SHA256, checksum, signed.signedHashData)
+	err = rsa.VerifyPKCS1v15(&pubKey, crypto.SHA256, checksum, signed.SignedHashData)
 	if err != nil {
 		_ = fmt.Errorf("verifying data, %v", err)
 	}
@@ -98,7 +101,7 @@ func demo() {
 	// Generate OCSP response
 	fmt.Println(fetchedTree)
 	fmt.Println(fetchedLog)
-	res, _ := NewMerkleResponse(certToCheck, notReallyLandmark)
+	res, _ := ocsp.NewResponse(certToCheck, notReallyLandmark)
 
 	// to be encoded and sent to the client
 
@@ -109,26 +112,26 @@ func demo() {
 	h := sha256.New()
 	h.Write(certToCheck)
 	hCert := h.Sum(nil)
-	block, _ := ByteToDataBlock(certToCheck)
+	block, _ := tree.ByteToDataBlock(certToCheck)
 
 	// Move to Verify .go or something
 	// Client should import
-	switch res.status {
-	case Good:
-		block, _ := ByteToDataBlock(certToCheck)
-		verify, err := mt.Verify(block, res.proof.combinedProof.issueProof, res.proof.combinedProof.issueRoot, defaultMerkleConfig)
-		verifyRev := smt.VerifyProof(*res.proof.combinedProof.revProof, res.proof.combinedProof.revRoot, hCert, []byte{}, sha256.New())
+	switch res.Status {
+	case ocsp.Good:
+		block, _ := tree.ByteToDataBlock(certToCheck)
+		verify, err := mt.Verify(block, res.Proof.CombinedProof.IssueProof, res.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
+		verifyRev := smt.VerifyProof(*res.Proof.CombinedProof.RevProof, res.Proof.CombinedProof.RevRoot, hCert, []byte{}, sha256.New())
 		fmt.Println("In issuance tree:", verify, err)
 		fmt.Println("Not in revocation tree:", verifyRev)
 
-	case Revoked:
-		block, _ := ByteToDataBlock(certToCheck)
-		verify, err := mt.Verify(block, res.proof.combinedProof.issueProof, res.proof.combinedProof.issueRoot, defaultMerkleConfig)
-		verifyRev := smt.VerifyProof(*res.proof.combinedProof.revProof, res.proof.combinedProof.revRoot, hCert, hCert, sha256.New())
+	case ocsp.Revoked:
+		block, _ := tree.ByteToDataBlock(certToCheck)
+		verify, err := mt.Verify(block, res.Proof.CombinedProof.IssueProof, res.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
+		verifyRev := smt.VerifyProof(*res.Proof.CombinedProof.RevProof, res.Proof.CombinedProof.RevRoot, hCert, hCert, sha256.New())
 		fmt.Println("In issuance tree:", verify, err)
 		fmt.Println("In revocation tree:", verifyRev)
 
-	case Unknown:
+	case ocsp.Unknown:
 		fmt.Println("status = unknown: todo, implement this")
 		//todo, revocation proof as a non-issued proof?
 	}
@@ -136,9 +139,9 @@ func demo() {
 	// If e.g status = good,
 
 	// ??? why does mt.MerkleTree need a tree to verify? switch lib?
-	verify, err := mt.Verify(block, res.proof.combinedProof.issueProof, res.proof.combinedProof.issueRoot, defaultMerkleConfig)
+	verify, err := mt.Verify(block, res.Proof.CombinedProof.IssueProof, res.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 	// Value = []byte{} because we got status = good (we expect the key val to point at empty)
-	verifyRev := smt.VerifyProof(*res.proof.combinedProof.revProof, res.proof.combinedProof.revRoot, hCert, []byte{}, sha256.New())
+	verifyRev := smt.VerifyProof(*res.Proof.CombinedProof.RevProof, res.Proof.CombinedProof.RevRoot, hCert, []byte{}, sha256.New())
 	// The two "proof" needs their head-hash to verify against. If implemented from scratch, you could technically compare it "higher up" since on this implementation they are children och the combinedTrees root.
 	// if you calculate both verify and verifyRev up until its highest hash, and then hash both of them together, they should equal combinedTrees root hash.
 	// Bandaid fix: include the root-certs in the combinedProof.

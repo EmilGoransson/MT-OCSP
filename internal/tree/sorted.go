@@ -1,4 +1,4 @@
-package main
+package tree
 
 import (
 	"bytes"
@@ -7,10 +7,16 @@ import (
 	mt "github.com/txaty/go-merkletree"
 )
 
+var DefaultMerkleConfig = &mt.Config{
+	DisableLeafHashing: true,
+	SortSiblingPairs:   true,
+	Mode:               mt.ModeTreeBuild,
+}
+
 type certHash struct {
 	hash []byte
 }
-type SortedMerkleTree struct {
+type Sorted struct {
 	*mt.MerkleTree
 }
 
@@ -18,22 +24,6 @@ func (t *certHash) Serialize() ([]byte, error) {
 	return t.hash, nil
 }
 
-func GenerateRandBlocks(size int) ([][]byte, error) {
-	var blocks [][]byte
-	for i := 0; i < size; i++ {
-		pKey, err := NewKeyPair(2048)
-		if err != nil {
-			return nil, err
-		}
-		certObj, err := NewRandomCertificate(pKey, false)
-
-		if err != nil {
-			return nil, err
-		}
-		blocks = append(blocks, certObj)
-	}
-	return blocks, nil
-}
 func ByteSliceToDataBlock(b [][]byte) ([]mt.DataBlock, error) {
 	var blocks []mt.DataBlock
 
@@ -54,12 +44,12 @@ func ByteToDataBlock(b []byte) (mt.DataBlock, error) {
 }
 
 // TODO:
-func (t *SortedMerkleTree) NewNonMemberProof() {
+func (t *Sorted) NewNonMemberProof() {
 
 }
 
 // // TEMP solution, if implemented correctly can be o(logn) prob
-func (t *SortedMerkleTree) has(hash []byte) (bool, error) {
+func (t *Sorted) has(hash []byte) (bool, error) {
 	leaves := t.MerkleTree.Leaves
 	for _, leaf := range leaves {
 		if bytes.Compare(hash, leaf) == 0 {
@@ -69,18 +59,11 @@ func (t *SortedMerkleTree) has(hash []byte) (bool, error) {
 	return false, nil
 }
 
-// NewMerkle Takes [][]byte slices as input and converts it to []Datablock
-func NewMerkle(byteBlocks [][]byte) (*SortedMerkleTree, error) {
+// NewSorted Takes [][]byte slices as input and converts it to []Datablock
+func NewSorted(byteBlocks [][]byte) (*Sorted, error) {
 	blocks, err := ByteSliceToDataBlock(byteBlocks)
 	if err != nil {
 		return nil, err
-	}
-
-	config := &mt.Config{
-		// Values hashed before placed in certHash (Should we?)
-		DisableLeafHashing: true,
-		SortSiblingPairs:   true,
-		Mode:               mt.ModeTreeBuild,
 	}
 
 	// Sort the blocks before inserting
@@ -89,8 +72,8 @@ func NewMerkle(byteBlocks [][]byte) (*SortedMerkleTree, error) {
 		dataJ, _ := blocks[j].Serialize()
 		return bytes.Compare(dataI[:], dataJ[:]) < 0
 	})
-	mtTree, err := mt.New(config, blocks)
-	var tree = &SortedMerkleTree{mtTree}
+	mtTree, err := mt.New(DefaultMerkleConfig, blocks)
+	var tree = &Sorted{mtTree}
 
 	if err != nil {
 		return nil, err
