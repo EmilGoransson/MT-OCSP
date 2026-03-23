@@ -106,6 +106,9 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 		return nil, fmt.Errorf("empty revocation, froze before generating proof")
 	}
 	status, err := getStatus(l.CTree, hash)
+	if err != nil {
+		return nil, err
+	}
 	var issuedProof *merkletree.Proof
 	var rProof smt.SparseMerkleProof
 	var cProof *CombinedProof

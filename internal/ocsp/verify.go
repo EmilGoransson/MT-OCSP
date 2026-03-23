@@ -67,7 +67,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, block mt.DataBlock) (b
 		sl.LogRoot,
 	)
 	if err != nil {
-		return false, fmt.Errorf("Log inclusion proof failed: %w", err)
+		return false, fmt.Errorf("log inclusion proof failed: %w", err)
 	}
 
 	return true, nil
