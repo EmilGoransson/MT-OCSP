@@ -169,9 +169,6 @@ func demo() {
 		}
 		fmt.Println("Validation of exclusion proof: ", verify, err)
 	}
-
-	// If e.g status = good,
-
 	if err != nil {
 		return
 	}

@@ -62,8 +62,8 @@ func ValidateExclusion(b []byte, proof *ExclusionProofSorted, root []byte, c *mt
 	//case 2 // validate the case
 	if proof.lProof != nil && proof.rProof != nil {
 		// You expect b to be in the middle, so
-		if bytes.Compare(b, proof.lVal) < 0 || bytes.Compare(b, proof.lVal) > 0 {
-			return false, fmt.Errorf("expected b to be < lVal and b > rVal: lVal: %b, b: %b, rVal: %b", proof.lVal, b, proof.rVal)
+		if bytes.Compare(b, proof.lVal) <= 0 || bytes.Compare(b, proof.rVal) >= 0 {
+			return false, fmt.Errorf("expected b to be < lVal and b > rVal: lVal: %x, b: %x, rVal: %x", proof.lVal, b, proof.rVal)
 		}
 		lBlock, err := ByteToDataBlock(proof.lVal)
 		if err != nil {
@@ -93,7 +93,7 @@ func ValidateExclusion(b []byte, proof *ExclusionProofSorted, root []byte, c *mt
 	// Case 1, insertion at the left-most
 	if proof.lProof != nil {
 		if bytes.Compare(b, proof.lVal) > 0 {
-			return false, fmt.Errorf("bad proof: expected b to be smaller than lVal, b: %b, lVal: %b", b, proof.lVal)
+			return false, fmt.Errorf("bad proof: expected b to be smaller than lVal, b: %x, lVal: %x", b, proof.lVal)
 		}
 
 		return mt.Verify(block, proof.lProof, root, c)
@@ -102,7 +102,7 @@ func ValidateExclusion(b []byte, proof *ExclusionProofSorted, root []byte, c *mt
 	// Case 3
 	if proof.rProof != nil {
 		if bytes.Compare(b, proof.rVal) < 0 {
-			return false, fmt.Errorf("bad format: expected b to be larger than rVal, b: %b, lVal: %b", b, proof.rVal)
+			return false, fmt.Errorf("bad format: expected b to be larger than rVal, b: %x, lVal: %x", b, proof.rVal)
 		}
 		return mt.Verify(block, proof.rProof, root, c)
 	}
@@ -117,8 +117,8 @@ func (t *Sorted) ValidateExclusion(b []byte, proof *ExclusionProofSorted) (bool,
 	//case 2 // validate the case
 	if proof.lProof != nil && proof.rProof != nil {
 		// You expect b to be in the middle, so
-		if bytes.Compare(b, proof.lVal) < 0 || bytes.Compare(b, proof.lVal) > 0 {
-			return false, fmt.Errorf("expected b to be < lVal and b > rVal: lVal: %b, b: %b, rVal: %b", proof.lVal, b, proof.rVal)
+		if bytes.Compare(b, proof.lVal) <= 0 || bytes.Compare(b, proof.rVal) >= 0 {
+			return false, fmt.Errorf("expected b to be < lVal and b > rVal: lVal: %x, b: %x, rVal: %x", proof.lVal, b, proof.rVal)
 		}
 		lBlock, err := ByteToDataBlock(proof.lVal)
 		if err != nil {
@@ -148,7 +148,7 @@ func (t *Sorted) ValidateExclusion(b []byte, proof *ExclusionProofSorted) (bool,
 	// Case 1, insertion at the left-most
 	if proof.lProof != nil {
 		if bytes.Compare(b, proof.lVal) > 0 {
-			return false, fmt.Errorf("bad proof: expected b to be smaller than lVal, b: %b, lVal: %b", b, proof.lVal)
+			return false, fmt.Errorf("bad proof: expected b to be smaller than lVal, b: %x, lVal: %x", b, proof.lVal)
 		}
 		return t.Verify(block, proof.lProof)
 
@@ -156,7 +156,7 @@ func (t *Sorted) ValidateExclusion(b []byte, proof *ExclusionProofSorted) (bool,
 	// Case 3
 	if proof.rProof != nil {
 		if bytes.Compare(b, proof.rVal) < 0 {
-			return false, fmt.Errorf("bad format: expected b to be larger than rval, b: %b, lVal: %b", b, proof.rVal)
+			return false, fmt.Errorf("bad format: expected b to be larger than rval, b: %x, lVal: %x", b, proof.rVal)
 		}
 		return t.Verify(block, proof.rProof)
 	}
@@ -165,6 +165,9 @@ func (t *Sorted) ValidateExclusion(b []byte, proof *ExclusionProofSorted) (bool,
 
 func (t *Sorted) NewNonMemberProof(hash []byte) (*ExclusionProofSorted, error) {
 	block, err := ByteToDataBlock(hash)
+	if err != nil {
+		return nil, err
+	}
 	ret := &ExclusionProofSorted{
 		lVal:   nil,
 		rVal:   nil,
@@ -202,14 +205,17 @@ func (t *Sorted) NewNonMemberProof(hash []byte) (*ExclusionProofSorted, error) {
 	// Case 1
 
 	if index <= 0 {
-		leafR := leaves[index]
-		bDatablockR, err := ByteToDataBlock(leafR)
-		ret.lProof, err = t.Proof(bDatablockR)
-		ret.lVal = leaves[index]
-		ret.rProof = nil
+		leaf := leaves[index]
+		bDatablockL, err := ByteToDataBlock(leaf)
 		if err != nil {
 			return nil, err
 		}
+		ret.lProof, err = t.Proof(bDatablockL)
+		if err != nil {
+			return nil, err
+		}
+		ret.lVal = leaves[index]
+		ret.rProof = nil
 		return ret, nil
 	}
 	// Case 3
