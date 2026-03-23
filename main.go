@@ -57,7 +57,7 @@ func demo() {
 	log, _ := tree.NewLog()
 	revocationTree := tree.NewSparse()
 	caKey, _ := cert.NewRootCertificateAndKey(2048)
-	initTree, _ := tree.NewCombinedTree(issuedCerts, revokedCerts, revocationTree)
+	initTree, _ := tree.NewCombined(issuedCerts, revokedCerts, revocationTree)
 
 	//_, _ = initTree.AddBulkRevocationToTree(revokedCerts)
 	//Store the combinedTree
