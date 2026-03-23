@@ -132,7 +132,6 @@ func demo() {
 		hCert := h.Sum(nil)
 	*/
 	hCert := certToCheck
-	block, _ := tree.ByteToDataBlock(certToCheck)
 
 	// Move to Verify .go or something
 	// Client should import
@@ -173,15 +172,6 @@ func demo() {
 
 	// If e.g status = good,
 
-	// ??? why does mt.MerkleTree need a tree to verify? switch lib?
-	verify, err := mt.Verify(block, res.Proof.CombinedProof.IssueProof, res.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
-	// Value = []byte{} because we got status = good (we expect the key val to point at empty)
-	verifyRev := smt.VerifyProof(*res.Proof.CombinedProof.RevProof, res.Proof.CombinedProof.RevRoot, hCert, []byte{}, sha256.New())
-	// The two "proof" needs their head-hash to verify against. If implemented from scratch, you could technically compare it "higher up" since on this implementation they are children och the combinedTrees root.
-	// if you calculate both verify and verifyRev up until its highest hash, and then hash both of them together, they should equal combinedTrees root hash.
-	// Bandaid fix: include the root-certs in the combinedProof.
-	fmt.Println("Certificate is in issued Tree: ", verify)
-	fmt.Println("Certificate is not in rev-tree (proof is for path = nobyte []byte{}  ", verifyRev)
 	if err != nil {
 		return
 	}
