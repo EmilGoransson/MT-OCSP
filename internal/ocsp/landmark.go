@@ -17,10 +17,10 @@ import (
 
 // Should be PQ safe (not RSA)
 type Landmark struct {
-	date     time.Time
-	log      *tree.Log
-	logIndex uint64
-	cTree    *tree.Combined
+	Date     time.Time
+	Log      *tree.Log
+	LogIndex uint64
+	CTree    *tree.Combined
 }
 
 // SignedLandmark is distributed out of band
@@ -38,26 +38,27 @@ type LandmarkProof struct {
 }
 
 type CombinedProof struct {
-	IssueRoot  []byte // Placeholder / temp fix
-	RevRoot    []byte // Placeholder / temp fix
-	IssueProof *merkletree.Proof
-	RevProof   *smt.SparseMerkleProof
+	IssueRoot     []byte // Placeholder / temp fix
+	RevRoot       []byte // Placeholder / temp fix
+	IssueProof    *merkletree.Proof
+	NonIssueProof *tree.ExclusionProofSorted
+	RevProof      *smt.SparseMerkleProof
 }
 
 // TODO: use the same revocation tree as last epoch & remove it
-// NewLandmark commits a combinedTree to the log.
+// NewLandmark commits a combinedTree to the Log.
 func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
-	// Commit curTree and data to the log (can include timestamp if needed)
+	// Commit curTree and data to the Log (can include timestamp if needed)
 	err := l.AppendToLog(c.Root)
 	if err != nil {
-		return nil, fmt.Errorf("adding combinedTree to log, %v", err)
+		return nil, fmt.Errorf("adding combinedTree to Log, %v", err)
 	}
 	index := l.Size() - 1
 	return &Landmark{
-		log:      l,
-		logIndex: index,
-		cTree:    c,
-		date:     time.Now(),
+		Log:      l,
+		LogIndex: index,
+		CTree:    c,
+		Date:     time.Now(),
 	}, nil
 }
 
@@ -65,15 +66,15 @@ func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
 func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandmark, error) {
 	// Signs the hash of (RootHash + TreeSize + Date
 	hasher := h.New()
-	rootHash, err := l.log.RootHash()
+	rootHash, err := l.Log.RootHash()
 	if err != nil {
 		return nil, fmt.Errorf("getting root hash, %v", err)
 	}
 	// Converts treesize to []byte
 	treeSizeHash := make([]byte, 8)
-	size := l.log.Size()
+	size := l.Log.Size()
 	binary.BigEndian.PutUint64(treeSizeHash, size)
-	timeHash, err := l.date.MarshalBinary()
+	timeHash, err := l.Date.MarshalBinary()
 	if err != nil {
 		return nil, fmt.Errorf("marshaling time, %v", err)
 	}
@@ -93,7 +94,7 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 		SignedHashData: signedHash,
 		LogRoot:        rootHash,
 		LogSize:        size,
-		Date:           l.date,
+		Date:           l.Date,
 	}, nil
 
 }
@@ -101,46 +102,52 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 // newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
 func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	// Generate combinedTree Proof
-	if l.cTree.RevSMT.SparseMerkleTree == nil {
+	if l.CTree.RevSMT.SparseMerkleTree == nil {
 		return nil, fmt.Errorf("empty revocation, froze before generating proof")
 	}
-	status, err := getStatus(l.cTree, hash)
+	status, err := getStatus(l.CTree, hash)
 	var issuedProof *merkletree.Proof
 	var rProof smt.SparseMerkleProof
 	var cProof *CombinedProof
+
+	// Make into its own type of proof maybe since you need NewNonMembershipProof for EVERY tree in EVERY epoch, Only needs to be one if its Date based
 	if status == Unknown {
-		issuedProof, err := l.cTree.NewNonMembershipProof(hash)
+		issuedProof, err := l.CTree.NewNonMembershipProof(hash)
 		if err != nil {
 			return nil, fmt.Errorf("creating newNonMembership proof %v, ", err)
 		}
 		cProof = &CombinedProof{
-			IssueProof: issuedProof,
-			RevProof:   nil,
+			IssueRoot:     l.CTree.IssuedMT.Root,
+			IssueProof:    nil,
+			NonIssueProof: issuedProof,
+			RevProof:      nil,
+		}
+	} else {
+		issuedProof, err = l.CTree.NewMembershipProofIssued(hash)
+		if err != nil {
+			return nil, fmt.Errorf("fetching membershipProof, %v", err)
+		}
+		rProof, err = l.CTree.NewMembershipProofRevoked(hash)
+		cProof = &CombinedProof{
+			IssueRoot:     l.CTree.IssuedMT.Root,
+			RevRoot:       l.CTree.RevSMT.Root(),
+			IssueProof:    issuedProof,
+			RevProof:      &rProof,
+			NonIssueProof: nil,
+		}
+
+		if err != nil {
+			return &LandmarkProof{nil, 0, nil}, err
 		}
 	}
 
-	issuedProof, err = l.cTree.NewMembershipProofIssued(hash)
-	if err != nil {
-		return nil, fmt.Errorf("fetching membershipProof, %v", err)
-	}
-	rProof, err = l.cTree.NewMembershipProofRevoked(hash)
-	cProof = &CombinedProof{
-		IssueRoot:  l.cTree.IssuedMT.Root,
-		RevRoot:    l.cTree.RevSMT.Root(),
-		IssueProof: issuedProof,
-		RevProof:   &rProof,
-	}
-
-	if err != nil {
-		return &LandmarkProof{nil, 0, nil}, err
-	}
-	// Generate Append log proof
+	// Generate Append Log proof
 	// Find hash id
-	logProof, err := l.log.NewProof(l.logIndex)
+	logProof, err := l.Log.NewProof(l.LogIndex)
 
 	return &LandmarkProof{
 		logProof:      logProof,
-		logIndex:      l.logIndex,
+		logIndex:      l.LogIndex,
 		CombinedProof: cProof,
 	}, nil
 }

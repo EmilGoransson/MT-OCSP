@@ -60,18 +60,19 @@ func TestNewMerkleResponse(t *testing.T) {
 		}
 	})
 
-	// Not implemented yet. Proof for unknown status not implemented
-	/*
-		t.Run("response status is Unknown for cert not in tree", func(t *testing.T) {
-			unknownCert := []byte("cert-never-issued")
-			resp, err := NewResponse(unknownCert, lm1)
-			if err != nil {
-				t.Fatalf("NewResponse() returned error: %v", err)
-			}
-			if resp.Status != Unknown {
-				t.Errorf("Expected status Unknown (%d), got %d", Unknown, resp.Status)
-			}
-		}) */
+	t.Run("response status is Unknown for cert not in tree", func(t *testing.T) {
+		//unknownCert, _ := cert.NewRandomCertificate(key, false)
+		//unknownCert = cert.HashCert(unknownCert)
+		unknownCert := []byte("hibbjhfa")
+		resp, err := NewResponse(unknownCert, lm1)
+		if err != nil {
+			t.Fatalf("NewResponse() returned error: %v", err)
+		}
+		if resp.Status != Unknown {
+			t.Errorf("Expected status Unknown (%d), got %d", Unknown, resp.Status)
+		}
+	})
+
 }
 
 func TestGetStatus(t *testing.T) {

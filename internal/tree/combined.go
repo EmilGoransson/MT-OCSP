@@ -103,8 +103,8 @@ func (c *Combined) validateSortedMTMembershipProof(b []byte, proof *merkletree.P
 }
 
 // NewMembershipProofIssued takes a hash, converts it into a data block, and returns proof
-func (c *Combined) NewMembershipProofIssued(hash []byte) (*merkletree.Proof, error) {
 
+func (c *Combined) NewMembershipProofIssued(hash []byte) (*merkletree.Proof, error) {
 	dataBlock, err := ByteToDataBlock(hash)
 	if err != nil {
 		return nil, err
@@ -113,20 +113,20 @@ func (c *Combined) NewMembershipProofIssued(hash []byte) (*merkletree.Proof, err
 	return c.IssuedMT.Proof(dataBlock)
 }
 
+// NewNonMembershipProof TODO: Implement non membership proof in mt.merkletree
+// TODO: technically you can compress the proof further since there are some overlapping hashes.
+// 1) find the location where the hash would've been inserted if it existed in the tree
+// Case 1:Left-most- we only need the inclusion proof for the left-most item.
+// Case 2: middle of two nodes: We would need two inclusion proof for the "surrounding items"
+// Case 3:right-most- We only need the inclusion proof for the right most item
+func (c *Combined) NewNonMembershipProof(hash []byte) (*ExclusionProofSorted, error) {
+	return c.IssuedMT.NewNonMemberProof(hash)
+}
+
 // hash takes a hash and returns a bool indicating if the tree Has the value or not
 func (c *Combined) Has(hash []byte) (bool, error) {
 
 	return c.IssuedMT.has(hash)
-}
-
-// TODO: Implement non membership proof in mt.merkletree
-func (c *Combined) NewNonMembershipProof(hash []byte) (*merkletree.Proof, error) {
-	_, err := ByteToDataBlock(hash)
-
-	if err != nil {
-		return nil, err
-	}
-	return &merkletree.Proof{}, err
 }
 
 // Is this really possible?

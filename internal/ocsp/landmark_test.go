@@ -22,10 +22,10 @@ func TestLandmarkLog(t *testing.T) {
 	}
 	keyPair := ca.PKey
 
-	// Create an empty log
+	// Create an empty Log
 	log, err := tree.NewLog()
 	if err != nil {
-		t.Errorf("creating empty log")
+		t.Errorf("creating empty Log")
 	}
 
 	// Create a "global" revocation-tree that lives across epochs
@@ -59,7 +59,7 @@ func TestLandmarkLog(t *testing.T) {
 	if err != nil {
 		t.Fatalf("creating landmark")
 	}
-	// Sign the log for distribution
+	// Sign the Log for distribution
 	signedlm1, err := lm1.NewSignedHead(keyPair, crypto.SHA256)
 
 	if signedlm1 == nil {
@@ -87,7 +87,7 @@ func TestLandmarkLog(t *testing.T) {
 	err = log.AppendToLog(secondTree.Root)
 
 	if err != nil {
-		t.Errorf("adding combinedtree to log, %v", err)
+		t.Errorf("adding combinedtree to Log, %v", err)
 	}
 	lm2, err := NewLandmark(log, secondTree)
 	if err != nil {
@@ -162,6 +162,6 @@ func TestLandmarkLog(t *testing.T) {
 
 	})
 	// Freeze Landmark 2 (ONLY WHEN CREATING NEW EPOCH)
-	//landmark2.cTree.revSMT = activeRevokedTree.Freeze()
+	//landmark2.CTree.revSMT = activeRevokedTree.Freeze()
 
 }

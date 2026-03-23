@@ -17,15 +17,16 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, block mt.DataBlock) (b
 		return false, fmt.Errorf("bad Response")
 	}
 	verify, err := mt.Verify(block, m.Proof.CombinedProof.IssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
+	nonIssueProof := m.Proof.CombinedProof.NonIssueProof
 	if err != nil {
 		return false, fmt.Errorf("verifying issue-proof, %v", err)
 	}
 	switch m.Status {
-	// We expect inclusion in issue-proof & exclusion (inclusion but for empty hash) in revoke proof
+	// We expect inclusion in issue-proof & exclusion (inclusion but for empty hash) in revoke proof & RevProof = Nil
 	case Good:
 		{
 			notRevoked := smt.VerifyProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, []byte{}, sha256.New())
-			if !verify || !notRevoked {
+			if !verify || !notRevoked || nonIssueProof != nil {
 				return false, fmt.Errorf("bad proof for good, expected, true, true, got: %t, %t  ", verify, notRevoked)
 			}
 		}
@@ -33,12 +34,15 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, block mt.DataBlock) (b
 	case Revoked:
 		{
 			verifyRev := smt.VerifyProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, hash, sha256.New())
-			if !verify || !verifyRev {
+			if !verify || !verifyRev || nonIssueProof != nil {
 				return false, fmt.Errorf("bad proof for revoked, expected, true, true, got: %t, %t  ", verify, verifyRev)
 			}
 		}
 	case Unknown:
 		{ // If not issued we expect a proof verifying the exclusion. TODO: not implemented yet
+			if nonIssueProof == nil {
+				return false, fmt.Errorf("expected nonIssueProof to be non-nil")
+			}
 			if verify {
 				return false, fmt.Errorf("bad proof for unknown, expected, false, got: %t ", verify)
 			}
@@ -53,7 +57,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, block mt.DataBlock) (b
 	hasher.Write(m.Proof.CombinedProof.IssueRoot)
 	hasher.Write(m.Proof.CombinedProof.RevRoot)
 	hash = hasher.Sum(nil)
-	// use the hash to verify its inclusion in the log:
+	// use the hash to verify its inclusion in the Log:
 	err = proof.VerifyInclusion(
 		rfc6962.DefaultHasher,
 		m.Proof.logIndex,
@@ -63,7 +67,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, block mt.DataBlock) (b
 		sl.LogRoot,
 	)
 	if err != nil {
-		return false, fmt.Errorf("log inclusion proof failed: %w", err)
+		return false, fmt.Errorf("Log inclusion proof failed: %w", err)
 	}
 
 	return true, nil
