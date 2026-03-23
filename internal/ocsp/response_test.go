@@ -16,7 +16,7 @@ func TestNewMerkleResponse(t *testing.T) {
 	// ca, _ := NewRootCertificateAndKey(2048)
 	log, _ := tree.NewLog()
 	revokedTree := tree.NewSparse()
-	cTree, _ := tree.NewCombinedTree(certs, nil, revokedTree)
+	cTree, _ := tree.NewCombined(certs, nil, revokedTree)
 	_ = log.AppendToLog(cTree.Root)
 	lm1, _ := NewLandmark(log, cTree)
 
@@ -81,7 +81,7 @@ func TestGetStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
-	tree, err := tree.NewCombinedTree(certs, nil, revTree)
+	tree, err := tree.NewCombined(certs, nil, revTree)
 	if err != nil {
 		t.Fatalf("Failed to create combined tree: %v", err)
 	}

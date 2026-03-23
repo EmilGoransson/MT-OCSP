@@ -28,14 +28,19 @@ func demo() {
 		[]byte("issued-id-003"),
 		[]byte("issued-id-004"),
 	}
-
 	// CA
-	//combinedTreeStore := make(map[int64]Combined)
+	//temp storage Epoch => Landmark => trees
+	// Or Date => Landmark => Trees
+
+	// Cert hash => check each landmark
+	store := make(map[uint64]*ocsp.Landmark)
+
 	log, _ := tree.NewLog()
+
 	revocationTree := tree.NewSparse()
 	caKey, _ := cert.NewRootCertificateAndKey(2048)
 	certs, _ := cert.NewListRandomCertificatesWithKey(10, caKey.PKey)
-	initTree, _ := tree.NewCombinedTree(issuedCerts, nil, revocationTree)
+	initTree, _ := tree.NewCombined(issuedCerts, nil, revocationTree)
 	var revoked [][]byte
 	for i, cert := range certs {
 		if i%5 == 0 {
@@ -48,8 +53,19 @@ func demo() {
 	_ = log.AppendToLog(initTree.Root)
 	// Generate landmark to publish
 	landmark, _ := ocsp.NewLandmark(log, initTree)
+	store[0] = landmark
 	// Sign the lm
 	signed, _ := landmark.NewSignedHead(caKey.PKey, crypto.SHA256)
+
+	// Finds the oldest lm that contains test
+	hash := []byte("test")
+	var foundTree *ocsp.Landmark
+	for _, lm := range store {
+		if has, _ := lm.Ctree.Has(hash); has {
+			foundTree = lm
+		}
+	}
+	fmt.Println("found tree, ", foundTree)
 
 	// Signed sent to client
 
@@ -57,7 +73,7 @@ func demo() {
 	// 1. Verifies the signature
 	// Calculate the hash
 	hasher := crypto.SHA256.New()
-	// Converts treesize to []byte
+	// Converts tree size to []byte
 	treeSizeHash := make([]byte, 8)
 	size := signed.LogSize
 	binary.BigEndian.PutUint64(treeSizeHash, size)

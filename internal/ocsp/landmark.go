@@ -17,10 +17,10 @@ import (
 
 // Should be PQ safe (not RSA)
 type Landmark struct {
-	date     time.Time
-	log      *tree.Log
-	logIndex uint64
-	cTree    *tree.Combined
+	Date     time.Time
+	Log      *tree.Log
+	LogIndex uint64
+	Ctree    *tree.Combined
 }
 
 // SignedLandmark is distributed out of band
@@ -45,19 +45,19 @@ type CombinedProof struct {
 }
 
 // TODO: use the same revocation tree as last epoch & remove it
-// NewLandmark commits a combinedTree to the log.
+// NewLandmark commits a combinedTree to the Log.
 func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
-	// Commit curTree and data to the log (can include timestamp if needed)
+	// Commit curTree and data to the Log (can include timestamp if needed)
 	err := l.AppendToLog(c.Root)
 	if err != nil {
-		return nil, fmt.Errorf("adding combinedTree to log, %v", err)
+		return nil, fmt.Errorf("adding combinedTree to Log, %v", err)
 	}
 	index := l.Size() - 1
 	return &Landmark{
-		log:      l,
-		logIndex: index,
-		cTree:    c,
-		date:     time.Now(),
+		Log:      l,
+		LogIndex: index,
+		Ctree:    c,
+		Date:     time.Now(),
 	}, nil
 }
 
@@ -65,15 +65,15 @@ func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
 func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandmark, error) {
 	// Signs the hash of (RootHash + TreeSize + Date
 	hasher := h.New()
-	rootHash, err := l.log.RootHash()
+	rootHash, err := l.Log.RootHash()
 	if err != nil {
 		return nil, fmt.Errorf("getting root hash, %v", err)
 	}
 	// Converts treesize to []byte
 	treeSizeHash := make([]byte, 8)
-	size := l.log.Size()
+	size := l.Log.Size()
 	binary.BigEndian.PutUint64(treeSizeHash, size)
-	timeHash, err := l.date.MarshalBinary()
+	timeHash, err := l.Date.MarshalBinary()
 	if err != nil {
 		return nil, fmt.Errorf("marshaling time, %v", err)
 	}
@@ -93,7 +93,7 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 		SignedHashData: signedHash,
 		LogRoot:        rootHash,
 		LogSize:        size,
-		Date:           l.date,
+		Date:           l.Date,
 	}, nil
 
 }
@@ -101,15 +101,15 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 // newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
 func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	// Generate combinedTree Proof
-	if l.cTree.RevSMT.SparseMerkleTree == nil {
+	if l.Ctree.RevSMT.SparseMerkleTree == nil {
 		return nil, fmt.Errorf("empty revocation, froze before generating proof")
 	}
-	status, err := getStatus(l.cTree, hash)
+	status, err := getStatus(l.Ctree, hash)
 	var issuedProof *merkletree.Proof
 	var rProof smt.SparseMerkleProof
 	var cProof *CombinedProof
 	if status == Unknown {
-		issuedProof, err := l.cTree.NewNonMembershipProof(hash)
+		issuedProof, err := l.Ctree.NewNonMembershipProof(hash)
 		if err != nil {
 			return nil, fmt.Errorf("creating newNonMembership proof %v, ", err)
 		}
@@ -119,14 +119,14 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 		}
 	}
 
-	issuedProof, err = l.cTree.NewMembershipProofIssued(hash)
+	issuedProof, err = l.Ctree.NewMembershipProofIssued(hash)
 	if err != nil {
 		return nil, fmt.Errorf("fetching membershipProof, %v", err)
 	}
-	rProof, err = l.cTree.NewMembershipProofRevoked(hash)
+	rProof, err = l.Ctree.NewMembershipProofRevoked(hash)
 	cProof = &CombinedProof{
-		IssueRoot:  l.cTree.IssuedMT.Root,
-		RevRoot:    l.cTree.RevSMT.Root(),
+		IssueRoot:  l.Ctree.IssuedMT.Root,
+		RevRoot:    l.Ctree.RevSMT.Root(),
 		IssueProof: issuedProof,
 		RevProof:   &rProof,
 	}
@@ -134,13 +134,13 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	if err != nil {
 		return &LandmarkProof{nil, 0, nil}, err
 	}
-	// Generate Append log proof
+	// Generate Append Log proof
 	// Find hash id
-	logProof, err := l.log.NewProof(l.logIndex)
+	logProof, err := l.Log.NewProof(l.LogIndex)
 
 	return &LandmarkProof{
 		logProof:      logProof,
-		logIndex:      l.logIndex,
+		logIndex:      l.LogIndex,
 		CombinedProof: cProof,
 	}, nil
 }
