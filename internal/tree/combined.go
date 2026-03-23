@@ -21,7 +21,7 @@ func NewEmptyTree() *Combined {
 }
 
 // TODO: Perhaps create function that takes input blocks for MT and input blocks for Sparse & adds them to tree?
-func NewCombinedTree(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*Combined, error) {
+func NewCombined(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*Combined, error) {
 	if rTree == nil {
 		return nil, fmt.Errorf("the revcation tree must be non nil")
 	}
@@ -103,8 +103,8 @@ func (c *Combined) validateSortedMTMembershipProof(b []byte, proof *merkletree.P
 }
 
 // NewMembershipProofIssued takes a hash, converts it into a data block, and returns proof
-
 func (c *Combined) NewMembershipProofIssued(hash []byte) (*merkletree.Proof, error) {
+
 	dataBlock, err := ByteToDataBlock(hash)
 	if err != nil {
 		return nil, err

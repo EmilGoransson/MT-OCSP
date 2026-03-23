@@ -49,7 +49,7 @@ func TestLandmarkLog(t *testing.T) {
 	}
 
 	// Create a tree for the issued certs  & pass in the previously created revocation-tree
-	firstTree, err := tree.NewCombinedTree(issuedCerts, revokedCerts, activeRevokedTree)
+	firstTree, err := tree.NewCombined(issuedCerts, revokedCerts, activeRevokedTree)
 	if err != nil {
 		t.Fatalf("adding certs to first tree: %v", err)
 	}
@@ -79,7 +79,7 @@ func TestLandmarkLog(t *testing.T) {
 		}
 	}
 	// Create a new combined tree for the 2nd hour / 2nd epoch, making sure to pass the same revocation initially created
-	secondTree, err := tree.NewCombinedTree(issuedCerts2, revokedCerts2, activeRevokedTree)
+	secondTree, err := tree.NewCombined(issuedCerts2, revokedCerts2, activeRevokedTree)
 	if err != nil {
 		t.Fatalf("adding certs to 2nd tree: %v", err)
 	}
