@@ -29,7 +29,10 @@ func findTreeTMP(rHash []byte) (*tree.Combined, error) {
 // TODO: Temp implementation, rootHash shall be given as part of the arguments
 func NewResponse(certHash []byte, l *Landmark) (*Response, error) {
 	var status int8
-	status, _ = getStatus(l.Ctree, certHash)
+	status, err := getStatus(l.CTree, certHash)
+	if err != nil {
+		return nil, err
+	}
 	p, err := l.NewLandmarkProof(certHash)
 	if err != nil {
 		return nil, fmt.Errorf("generating proof for cert, %v", err)

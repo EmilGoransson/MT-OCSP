@@ -7,7 +7,7 @@ func main() {
 }
 func findLandmark(h []byte, store map[uint64]*ocsp.Landmark) (found *ocsp.Landmark) {
 	for _, lm := range store {
-		if has, _ := lm.Ctree.Has(h); has {
+		if has, _ := lm.CTree.Has(h); has {
 			found = lm
 		}
 	}
