@@ -143,14 +143,6 @@ func demo() {
 		verify, err := mt.Verify(block, res.Proof.CombinedProof.IssueProof, res.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 		verifyRev := smt.VerifyProof(*res.Proof.CombinedProof.RevProof, res.Proof.CombinedProof.RevRoot, hCert, []byte{}, sha256.New())
 		//debug, testProof is not the same as res.Proof.CombinedProof.RevProof, why?
-		testProof, _ := initTree.NewMembershipProofRevoked(hCert)
-		testVerify := smt.VerifyProof(testProof, res.Proof.CombinedProof.RevRoot, hCert, []byte{}, sha256.New())
-		testProofLM, _ := landmark.CTree.NewMembershipProofRevoked(hCert)
-		testVerifyLM := smt.VerifyProof(testProofLM, res.Proof.CombinedProof.RevRoot, hCert, []byte{}, sha256.New())
-		fmt.Println(testProof, testVerify, testVerifyLM)
-		val, _ := initTree.RevSMT.Has(hCert)
-		fmt.Println("cRoot: ", initTree.RevSMT.Root(), "resRoot :", res.Proof.CombinedProof.RevRoot)
-		fmt.Println(val)
 		fmt.Println("In issuance tree:", verify, err)
 		fmt.Println("Not in revocation tree:", verifyRev)
 

@@ -11,20 +11,22 @@ import (
 	mt "github.com/txaty/go-merkletree"
 )
 
-func Verify(m *Response, sl *SignedLandmark, hash []byte, block mt.DataBlock) (bool, error) {
+// Verify is used by the client to verify sent landmark
+func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
+	block, err := tree.ByteToDataBlock(hash)
 	// Verify CombinedProof
 	if m == nil || m.Proof == nil || m.Proof.CombinedProof == nil || sl == nil {
 		return false, fmt.Errorf("bad Response")
 	}
-	verify, err := mt.Verify(block, m.Proof.CombinedProof.IssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 	nonIssueProof := m.Proof.CombinedProof.NonIssueProof
-	if err != nil {
-		return false, fmt.Errorf("verifying issue-proof, %v", err)
-	}
 	switch m.Status {
 	// We expect inclusion in issue-proof & exclusion (inclusion but for empty hash) in revoke proof & RevProof = Nil
 	case Good:
 		{
+			verify, err := mt.Verify(block, m.Proof.CombinedProof.IssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
+			if err != nil {
+				return false, fmt.Errorf("verifying issue-proof, %v", err)
+			}
 			notRevoked := smt.VerifyProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, []byte{}, sha256.New())
 			if !verify || !notRevoked || nonIssueProof != nil {
 				return false, fmt.Errorf("bad proof for good, expected, true, true, got: %t, %t  ", verify, notRevoked)
@@ -33,19 +35,24 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, block mt.DataBlock) (b
 		// We expect inclusion in issue-proof & inclusion in revoke proof
 	case Revoked:
 		{
+			verify, err := mt.Verify(block, m.Proof.CombinedProof.IssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
+			if err != nil {
+				return false, fmt.Errorf("verifying issue-proof, %v", err)
+			}
 			verifyRev := smt.VerifyProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, hash, sha256.New())
 			if !verify || !verifyRev || nonIssueProof != nil {
 				return false, fmt.Errorf("bad proof for revoked, expected, true, true, got: %t, %t  ", verify, verifyRev)
 			}
 		}
 	case Unknown:
-		{ // If not issued we expect a proof verifying the exclusion. TODO: not implemented yet
+		{ // If not issued we expect a proof verifying the exclusion. TODO: add date validation? We expect the landmark to "cover" the certs date
+			if m.Proof.CombinedProof.IssueProof != nil {
+				return false, fmt.Errorf("bad proof for Unknown, expected issueProof to be nil")
+			}
 			if nonIssueProof == nil {
 				return false, fmt.Errorf("expected nonIssueProof to be non-nil")
 			}
-			if verify {
-				return false, fmt.Errorf("bad proof for unknown, expected, false, got: %t ", verify)
-			}
+			return tree.ValidateExclusion(hash, nonIssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 		}
 	default:
 		{
