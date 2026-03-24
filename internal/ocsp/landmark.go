@@ -121,6 +121,7 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 		}
 		cProof = &CombinedProof{
 			IssueRoot:     l.CTree.IssuedMT.Root,
+			RevRoot:       l.CTree.RevSMT.Root(),
 			IssueProof:    nil,
 			NonIssueProof: issuedProof,
 			RevProof:      nil,

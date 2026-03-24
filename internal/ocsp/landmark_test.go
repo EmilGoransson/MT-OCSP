@@ -127,8 +127,6 @@ func TestLandmarkLog(t *testing.T) {
 	})
 
 	t.Run("Epoch 2, Check Merkle Responses", func(t *testing.T) {
-		// Test 1: Revoked (index 0 → even → revoked)
-		// Pass raw cert bytes; NewResponse/getStatus handle hashing internally.
 		responseRevoked, err := NewResponse(issuedCerts2[0], lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for revoked cert: %v", err)
@@ -136,8 +134,6 @@ func TestLandmarkLog(t *testing.T) {
 		if responseRevoked.Status != Revoked {
 			t.Errorf("expected status Revoked (%d), got %d", Revoked, responseRevoked.Status)
 		}
-
-		// Test 2: Good (index 1 → odd → not revoked)
 		responseGood, err := NewResponse(issuedCerts2[1], lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for good cert: %v", err)
