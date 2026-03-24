@@ -46,16 +46,19 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 		}
 	case Unknown:
 		{ // If not issued we expect a proof verifying the exclusion. TODO: add date validation? We expect the landmark to "cover" the certs date
+			if m.Proof.CombinedProof.IssueProof != nil {
+				return false, fmt.Errorf("bad proof for Unknown, expected issueProof to be nil")
+			}
 			if nonIssueProof == nil {
 				return false, fmt.Errorf("expected nonIssueProof to be non-nil")
 			}
 			verifyExclusionNonIssued, err := tree.ValidateExclusion(hash, nonIssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
-			if m.Proof.CombinedProof.IssueProof != nil {
-				return false, fmt.Errorf("bad proof for Unknown, expected issueProof to be nil")
+			if err != nil {
+				return false, fmt.Errorf("verifying nonIssue proof, %v", err)
 			}
 
 			if !verifyExclusionNonIssued {
-				return false, err
+				return false, fmt.Errorf("bad proof for Unknown, exclusion verification failed")
 			}
 		}
 	default:
