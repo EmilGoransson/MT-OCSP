@@ -2,8 +2,8 @@ package ocsp
 
 import (
 	"crypto"
-	"merkle-ocsp/internal/cert"
 	"merkle-ocsp/internal/tree"
+	"merkle-ocsp/internal/util"
 	"testing"
 )
 
@@ -16,9 +16,9 @@ func TestLandmarkLog(t *testing.T) {
 	// ==========================================
 
 	// Generate a CA-keypair  (currently RSA, TBC)
-	ca, err := cert.NewRootCertificateAndKey(2048)
+	ca, err := util.NewRootCertificateAndKey(2048)
 	if err != nil {
-		t.Fatalf("creating key or cert: %v", err)
+		t.Fatalf("creating key or util: %v", err)
 	}
 	keyPair := ca.PKey
 
@@ -35,8 +35,8 @@ func TestLandmarkLog(t *testing.T) {
 	// Step 1: Epoch 1 (Hour 0 to 1) (e.g)
 	// ==========================================
 
-	issuedCerts, err := cert.NewListRandomCertificatesWithKey(5, keyPair)
-	issuedCerts = cert.HashList(issuedCerts)
+	issuedCerts, err := util.NewListRandomCertificatesWithKey(5, keyPair)
+	issuedCerts = util.HashList(issuedCerts)
 	if err != nil {
 		t.Fatalf("creating certs using key: %v", err)
 	}
@@ -66,8 +66,8 @@ func TestLandmarkLog(t *testing.T) {
 		t.Fatalf("signedlm1 should not be nil")
 	}
 	// Stat tracking for hour 1-2
-	issuedCerts2, err := cert.NewListRandomCertificatesWithKey(5, keyPair)
-	issuedCerts2 = cert.HashList(issuedCerts2)
+	issuedCerts2, err := util.NewListRandomCertificatesWithKey(5, keyPair)
+	issuedCerts2 = util.HashList(issuedCerts2)
 	if err != nil {
 		t.Fatalf("creating certs using key: %v", err)
 	}
@@ -129,14 +129,14 @@ func TestLandmarkLog(t *testing.T) {
 	t.Run("Epoch 2, Check Merkle Responses", func(t *testing.T) {
 		responseRevoked, err := NewResponse(issuedCerts2[0], lm2)
 		if err != nil {
-			t.Fatalf("creating merkle response for revoked cert: %v", err)
+			t.Fatalf("creating merkle response for revoked util: %v", err)
 		}
 		if responseRevoked.Status != Revoked {
 			t.Errorf("expected status Revoked (%d), got %d", Revoked, responseRevoked.Status)
 		}
 		responseGood, err := NewResponse(issuedCerts2[1], lm2)
 		if err != nil {
-			t.Fatalf("creating merkle response for good cert: %v", err)
+			t.Fatalf("creating merkle response for good util: %v", err)
 		}
 		if responseGood.Status != Good {
 			t.Errorf("expected status Good (%d), got %d", Good, responseGood.Status)
@@ -145,11 +145,11 @@ func TestLandmarkLog(t *testing.T) {
 			// unknown proof Not implemented
 
 			// Test 3: Unknown (never issued)
-			unknownCert := []byte("this-cert-was-never-issued")
-			hash := cert.HashCert(unknownCert)
+			unknownCert := []byte("this-util-was-never-issued")
+			hash := util.HashCert(unknownCert)
 			responseUnknown, err := NewResponse(hash, lm2)
 			if err != nil {
-				t.Fatalf("creating merkle response for unknown cert: %v", err)
+				t.Fatalf("creating merkle response for unknown util: %v", err)
 			}
 			if responseUnknown.Status != Unknown {
 				t.Errorf("expected status Unknown (%d), got %d", Unknown, responseUnknown.Status)

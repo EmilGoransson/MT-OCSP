@@ -35,7 +35,7 @@ func NewResponse(certHash []byte, l *Landmark) (*Response, error) {
 	}
 	p, err := l.NewLandmarkProof(certHash)
 	if err != nil {
-		return nil, fmt.Errorf("generating proof for cert, %v", err)
+		return nil, fmt.Errorf("generating proof for util, %v", err)
 	}
 	return &Response{status, time.Now(), p}, nil
 }

@@ -2,22 +2,22 @@ package ocsp
 
 import (
 	"crypto"
-	"merkle-ocsp/internal/cert"
 	"merkle-ocsp/internal/tree"
+	"merkle-ocsp/internal/util"
 	"testing"
 )
 
 func setup(t *testing.T) ([][]byte, *Landmark, *SignedLandmark) {
 	t.Helper()
-	ca, err := cert.NewRootCertificateAndKey(2048)
+	ca, err := util.NewRootCertificateAndKey(2048)
 	if err != nil {
 		t.Fatalf("setup: key gen: %v", err)
 	}
-	certs, err := cert.NewListRandomCertificatesWithKey(6, ca.PKey)
+	certs, err := util.NewListRandomCertificatesWithKey(6, ca.PKey)
 	if err != nil {
-		t.Fatalf("setup: cert gen: %v", err)
+		t.Fatalf("setup: util gen: %v", err)
 	}
-	certs = cert.HashList(certs)
+	certs = util.HashList(certs)
 
 	log, _ := tree.NewLog()
 	revTree := tree.NewSparse()
@@ -158,7 +158,7 @@ func TestVerifyUnknownGoodResponseClaimingUnknown(t *testing.T) {
 	resp.Status = Unknown
 	ok, err := Verify(resp, sl, certs[1])
 	if ok {
-		t.Fatal("expected Verify to reject Unknown status when cert is actually in the issue tree")
+		t.Fatal("expected Verify to reject Unknown status when util is actually in the issue tree")
 	}
 	_ = err
 }
