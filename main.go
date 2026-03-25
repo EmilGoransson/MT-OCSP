@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"merkle-ocsp/internal/ocsp"
-	"merkle-ocsp/internal/tree"
+	"log"
+	"merkle-ocsp/internal/responder"
 	"merkle-ocsp/internal/util"
 	"time"
 )
@@ -33,29 +33,36 @@ func demo() {
 	}
 	// First epoch
 	_, _ = util.NewKeyPair(2048)
-	controller, _ := NewController()
+	controller, _ := responder.NewController()
 	controller.SetFrequency(2 * time.Second)
 	controller.AddCertificates(issuedCerts1)
 	controller.AddRevokedCertificates(revokedCerts1)
-	ch := make(chan string)
+	ch := make(chan error)
 	controller.StartPeriod(ch)
 
-	x := <-ch
-	fmt.Println(x)
+	err := <-ch
+	if err != nil {
+		log.Fatalf("error in batch-handler %v", err)
+	}
 	for _, leaf := range controller.CurrentLandmark.CTree.IssuedMT.Leaves {
 		fmt.Println(string(leaf))
 	}
+	fmt.Println("--Done--")
 
 	// 2nd Epoch
 	controller.AddCertificates(issuedCerts2)
 	controller.AddRevokedCertificates(revokedCerts2)
 	controller.StartPeriod(ch)
 
-	x = <-ch
-	fmt.Println(x)
+	err = <-ch
+	if err != nil {
+		log.Fatalf("error in batch-handler %v", err)
+	}
 	for _, leaf := range controller.CurrentLandmark.CTree.IssuedMT.Leaves {
 		fmt.Println(string(leaf))
 	}
+	fmt.Println("--Done--")
+
 	/*
 
 		revokedCerts := [][]byte{
@@ -217,92 +224,4 @@ func demo() {
 				return
 			}
 	*/
-}
-
-type Controller struct {
-	IssuedCertsNext  [][]byte
-	RevokedCertsNext [][]byte
-	Log              *tree.Log
-	Revocation       *tree.Sparse
-	Landmarks        []*ocsp.Landmark
-	CurrentLandmark  *ocsp.Landmark
-	Frequency        time.Duration
-}
-
-// The function should loop wait for issued certs / revoked certs--- Goroutine?
-func NewController() (*Controller, error) {
-	log, err := tree.NewLog()
-	rTree := tree.NewSparse()
-	var certs [][]byte
-	var rCerts [][]byte
-	var lmList []*ocsp.Landmark
-	if err != nil {
-		return nil, err
-	}
-	return &Controller{
-		Log:              log,
-		Revocation:       rTree,
-		IssuedCertsNext:  certs,
-		RevokedCertsNext: rCerts,
-		Frequency:        0,
-		Landmarks:        lmList,
-		CurrentLandmark:  nil,
-	}, nil
-}
-
-// AddCertificates adds the certificate to the IssuedCertsNext queue, to be added in the next landmark
-func (c *Controller) AddCertificates(certs [][]byte) {
-	for _, cert := range certs {
-		c.IssuedCertsNext = append(c.IssuedCertsNext, cert)
-	}
-
-}
-
-// AddRevokedCertificates adds the revoked certificate to the RevokedCertsNext queue, to be added in the next landmark
-func (c *Controller) AddRevokedCertificates(certs [][]byte) {
-	for _, cert := range certs {
-		c.RevokedCertsNext = append(c.RevokedCertsNext, cert)
-	}
-}
-func (c *Controller) SetFrequency(t time.Duration) {
-	c.Frequency = t
-
-}
-func (c *Controller) StartPeriod(ch chan string) {
-	fmt.Println("--Started period!--", c.Frequency)
-	time.AfterFunc(c.Frequency, func() {
-		err := UpdateController(c, ch)
-		if err != nil {
-			return
-		}
-	})
-}
-func UpdateController(c *Controller, ch chan string) error {
-	fmt.Println("Updating!")
-	if c.CurrentLandmark != nil {
-		err := c.Log.AppendToLog(c.CurrentLandmark.CTree.Root)
-		if err != nil {
-			return err
-		}
-	}
-
-	// New things
-	newCombined, err := tree.NewCombined(c.IssuedCertsNext, c.RevokedCertsNext, c.Revocation)
-	if err != nil {
-		return err
-	}
-	// Clear collected certs
-	c.IssuedCertsNext = [][]byte{}
-	c.RevokedCertsNext = [][]byte{}
-	newLandmark, err := ocsp.NewLandmark(c.Log, newCombined)
-	c.Landmarks = append(c.Landmarks, newLandmark)
-	c.CurrentLandmark = newLandmark
-	if err != nil {
-		return err
-	}
-	ch <- "Done updating"
-	return nil
-}
-func (c *Controller) NewProof(h []byte) {
-
 }
