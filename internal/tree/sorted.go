@@ -20,6 +20,8 @@ type certHash struct {
 type Sorted struct {
 	*mt.MerkleTree
 }
+type test interface {
+}
 type ExclusionProofSorted struct {
 	lVal   []byte
 	rVal   []byte
@@ -227,8 +229,8 @@ func (t *Sorted) NewNonMemberProof(hash []byte) (*ExclusionProofSorted, error) {
 	if index < 0 || index > len(leaves) {
 		return nil, err
 	}
-	// TODO: test with large cert if its inserted at correct index
-	// What happens if there is a single cert in the issue tree?
+	// TODO: test with large util if its inserted at correct index
+	// What happens if there is a single util in the issue tree?
 	// Case 1, index = 0, we get the inclusion proof for index = 0, Case 3, if it should be inserted in the end, validate that its len-1
 	if err != nil {
 		return nil, err
@@ -311,12 +313,34 @@ func NewSorted(byteBlocks [][]byte) (*Sorted, error) {
 		dataJ, _ := blocks[j].Serialize()
 		return bytes.Compare(dataI[:], dataJ[:]) < 0
 	})
+	// If there is no blocks?
+	// If there is a single block, do what?
+	// TOOD: make sure to verify that this does not break the proofs
+	if len(blocks) < 1 {
+		emptyBlock, err := ByteToDataBlock([]byte{})
+		if err != nil {
+			return nil, err
+		}
+		emptyBlock2, err := ByteToDataBlock([]byte{})
+		if err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, emptyBlock)
+		blocks = append(blocks, emptyBlock2)
+	}
+	if len(blocks) == 1 {
+		emptyBlock, err := ByteToDataBlock([]byte{})
+		if err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, emptyBlock)
+	}
+	// the number of data blocks must be greater than 1
 	mtTree, err := mt.New(DefaultMerkleConfig, blocks)
-	var tree = &Sorted{mtTree}
-
 	if err != nil {
 		return nil, err
 	}
+	var tree = &Sorted{mtTree}
 
 	return tree, nil
 }

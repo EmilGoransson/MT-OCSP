@@ -1,15 +1,15 @@
 package ocsp
 
 import (
-	"merkle-ocsp/internal/cert"
 	"merkle-ocsp/internal/tree"
+	"merkle-ocsp/internal/util"
 	"testing"
 )
 
 func TestNewMerkleResponse(t *testing.T) {
-	key, err := cert.NewKeyPair(2048)
-	certs, err := cert.NewListRandomCertificatesWithKey(10, key)
-	certs = cert.HashList(certs)
+	key, err := util.NewKeyPair(2048)
+	certs, err := util.NewListRandomCertificatesWithKey(10, key)
+	certs = util.HashList(certs)
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
 	}
@@ -20,7 +20,7 @@ func TestNewMerkleResponse(t *testing.T) {
 	_ = log.AppendToLog(cTree.Root)
 	lm1, _ := NewLandmark(log, cTree)
 
-	t.Run("returns response for issued cert", func(t *testing.T) {
+	t.Run("returns response for issued util", func(t *testing.T) {
 		resp, err := NewResponse(certs[0], lm1)
 		if err != nil {
 			t.Fatalf("NewResponse() returned error: %v", err)
@@ -36,7 +36,7 @@ func TestNewMerkleResponse(t *testing.T) {
 		}
 	})
 
-	t.Run("response status is Good for issued non-revoked cert", func(t *testing.T) {
+	t.Run("response status is Good for issued non-revoked util", func(t *testing.T) {
 		resp, err := NewResponse(certs[1], lm1)
 		if err != nil {
 			t.Fatalf("NewResponse() returned error: %v", err)
@@ -46,10 +46,10 @@ func TestNewMerkleResponse(t *testing.T) {
 		}
 	})
 
-	t.Run("response status is Revoked for revoked cert", func(t *testing.T) {
+	t.Run("response status is Revoked for revoked util", func(t *testing.T) {
 		_, err := cTree.AddRevocationToTree(certs[2])
 		if err != nil {
-			t.Fatalf("Failed to revoke cert: %v", err)
+			t.Fatalf("Failed to revoke util: %v", err)
 		}
 		resp, err := NewResponse(certs[2], lm1)
 		if err != nil {
@@ -60,9 +60,9 @@ func TestNewMerkleResponse(t *testing.T) {
 		}
 	})
 
-	t.Run("response status is Unknown for cert not in tree", func(t *testing.T) {
-		//unknownCert, _ := cert.NewRandomCertificate(key, false)
-		//unknownCert = cert.HashCert(unknownCert)
+	t.Run("response status is Unknown for util not in tree", func(t *testing.T) {
+		//unknownCert, _ := util.NewRandomCertificate(key, false)
+		//unknownCert = util.HashCert(unknownCert)
 		unknownCert := []byte("hibbjhfa")
 		resp, err := NewResponse(unknownCert, lm1)
 		if err != nil {
@@ -76,8 +76,8 @@ func TestNewMerkleResponse(t *testing.T) {
 }
 
 func TestGetStatus(t *testing.T) {
-	key, err := cert.NewKeyPair(2048)
-	certs, err := cert.NewListRandomCertificatesWithKey(10, key)
+	key, err := util.NewKeyPair(2048)
+	certs, err := util.NewListRandomCertificatesWithKey(10, key)
 	revTree := tree.NewSparse()
 	if err != nil {
 		t.Fatalf("Failed to generate certs: %v", err)
@@ -100,7 +100,7 @@ func TestGetStatus(t *testing.T) {
 	t.Run("Revoked - issued and revoked", func(t *testing.T) {
 		_, err := tree.AddRevocationToTree(certs[1])
 		if err != nil {
-			t.Fatalf("Failed to revoke cert: %v", err)
+			t.Fatalf("Failed to revoke util: %v", err)
 		}
 		status, err := getStatus(tree, certs[1])
 		if err != nil {
@@ -132,7 +132,7 @@ func TestGetStatus(t *testing.T) {
 
 		_, err = tree.AddRevocationToTree(certs[2])
 		if err != nil {
-			t.Fatalf("Failed to revoke cert: %v", err)
+			t.Fatalf("Failed to revoke util: %v", err)
 		}
 
 		statusAfter, err := getStatus(tree, certs[2])
@@ -156,7 +156,7 @@ func TestGetStatus(t *testing.T) {
 			t.Fatalf("getStatus() returned error: %v", err)
 		}
 		if status != Unknown {
-			t.Errorf("Expected Unknown for revoked-but-never-issued cert, got %d", status)
+			t.Errorf("Expected Unknown for revoked-but-never-issued util, got %d", status)
 		}
 	})
 }

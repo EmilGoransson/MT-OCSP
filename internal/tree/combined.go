@@ -28,7 +28,7 @@ func NewCombined(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*C
 	var newSMT *Sparse
 	merkle, err := NewSorted(issuedCerts)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating new sorted, %v", err)
 	}
 	// If there is a previous SMT, we want to build on top of that
 	if rTree != nil {
@@ -44,7 +44,7 @@ func NewCombined(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*C
 	_, err = tree.AddBulkRevocationToTree(revokedCerts)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("adding bulk to rev tree, %v", err)
 	}
 
 	tree.updateGlobalRoot()

@@ -1,4 +1,4 @@
-package cert
+package util
 
 import (
 	"crypto/rand"
@@ -29,11 +29,7 @@ func HashList(list [][]byte) [][]byte {
 }
 
 func NewKeyPair(bits int) (*rsa.PrivateKey, error) {
-	caPrivateKey, err := rsa.GenerateKey(rand.Reader, bits)
-	if err != nil {
-		return nil, err
-	}
-	return caPrivateKey, nil
+	return rsa.GenerateKey(rand.Reader, bits)
 }
 func NewRootCertificateAndKey(keyLength int) (*CertObject, error) {
 	if keyLength < 2048 {
