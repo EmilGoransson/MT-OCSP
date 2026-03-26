@@ -1,4 +1,4 @@
-package responder
+package main
 
 func main() {
 	/*

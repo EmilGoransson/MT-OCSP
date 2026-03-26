@@ -65,7 +65,7 @@ func (c *CertificatesNext) addRevoked(certs [][]byte) {
 	}
 }
 
-func (c *CertificatesNext) drain() (issued [][]byte, revoked [][]byte) {
+func (c *CertificatesNext) refresh() (issued [][]byte, revoked [][]byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -97,7 +97,7 @@ func (c *Controller) StartPeriod(ch chan<- error) {
 }
 func (c *Controller) UpdateController() error {
 	fmt.Println("Updating!")
-	issued, revoked := c.Certificates.drain()
+	issued, revoked := c.Certificates.refresh()
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
