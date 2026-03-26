@@ -313,8 +313,21 @@ func NewSorted(byteBlocks [][]byte) (*Sorted, error) {
 		dataJ, _ := blocks[j].Serialize()
 		return bytes.Compare(dataI[:], dataJ[:]) < 0
 	})
+	// If there is no blocks?
 	// If there is a single block, do what?
 	// TOOD: make sure to verify that this does not break the proofs
+	if len(blocks) < 1 {
+		emptyBlock, err := ByteToDataBlock([]byte{})
+		if err != nil {
+			return nil, err
+		}
+		emptyBlock2, err := ByteToDataBlock([]byte{})
+		if err != nil {
+			return nil, err
+		}
+		blocks = append(blocks, emptyBlock)
+		blocks = append(blocks, emptyBlock2)
+	}
 	if len(blocks) == 1 {
 		emptyBlock, err := ByteToDataBlock([]byte{})
 		if err != nil {

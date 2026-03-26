@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"merkle-ocsp/internal/ocsp"
 	"merkle-ocsp/internal/tree"
+	"slices"
 	"sync"
 	"time"
 )
@@ -116,5 +117,19 @@ func (c *Controller) UpdateController() error {
 	return nil
 }
 
-func (c *Controller) NewProof(h []byte) {
+// GetCombinedTreeFromDate Finds a Landmark that covered the date.
+// Idea: Each cert is issued during some time, placing them within one epoch.
+func (c *Controller) GetCombinedTreeFromDate(h []byte, date time.Time) (*ocsp.Landmark, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	s := slices.IndexFunc(c.Landmarks, func(l *ocsp.Landmark) bool {
+		isBefore := l.Date.Add(-c.Frequency).Before(date)
+		return l.Date.After(date) && isBefore
+	})
+	// Unknown status
+	if s == -1 {
+		return nil, nil
+	}
+	return c.Landmarks[s], nil
 }

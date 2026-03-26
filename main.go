@@ -28,6 +28,9 @@ func demo() {
 	issuedCerts2 := [][]byte{
 		[]byte("revoked-id-111"),
 	}
+	issuedCerts3 := [][]byte{
+		[]byte("issued-id-333"),
+	}
 	revokedCerts2 := [][]byte{
 		[]byte("revoked-id-111"),
 	}
@@ -54,6 +57,10 @@ func demo() {
 	controller.AddRevokedCertificates(revokedCerts2)
 	controller.StartPeriod(ch)
 
+	controller.AddCertificates(issuedCerts3)
+
+	l := controller.CurrentLandmark
+
 	err = <-ch
 	if err != nil {
 		log.Fatalf("error in batch-handler %v", err)
@@ -63,6 +70,17 @@ func demo() {
 	}
 	fmt.Println("--Done--")
 
+	controller.StartPeriod(ch)
+	lm, err := controller.GetLandmarkTreeFromTime(l.Date)
+	if err != nil {
+		_ = fmt.Errorf("%v", err)
+	}
+	err = <-ch
+	if err != nil {
+		log.Fatalf("error in batch-handler %v", err)
+	}
+
+	fmt.Println(lm)
 	/*
 
 		revokedCerts := [][]byte{
