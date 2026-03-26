@@ -1,86 +1,72 @@
 package main
 
-import (
-	"fmt"
-	"log"
-	"merkle-ocsp/internal/responder"
-	"merkle-ocsp/internal/util"
-	"time"
-)
-
 func main() {
 	demo()
 }
 
 func demo() {
-	revokedCerts1 := [][]byte{
-		[]byte("revoked-id-1"),
-		[]byte("revoked-id-11"),
-	}
-	issuedCerts1 := [][]byte{
-		[]byte("issued-id-001"),
-		[]byte("issued-id-002"),
-		[]byte("issued-id-003"),
-		[]byte("issued-id-006"),
-		[]byte("revoked-id-1"),
-		[]byte("revoked-id-11"),
-	}
-	issuedCerts2 := [][]byte{
-		[]byte("revoked-id-111"),
-	}
-	issuedCerts3 := [][]byte{
-		[]byte("issued-id-333"),
-	}
-	revokedCerts2 := [][]byte{
-		[]byte("revoked-id-111"),
-	}
-	// First epoch
-	_, _ = util.NewKeyPair(2048)
-	controller, _ := responder.NewController()
-	controller.SetFrequency(2 * time.Second)
-	controller.AddCertificates(issuedCerts1)
-	controller.AddRevokedCertificates(revokedCerts1)
-	ch := make(chan error)
-	controller.StartPeriod(ch)
+	/*	revokedCerts1 := [][]byte{
+			[]byte("revoked-id-1"),
+			[]byte("revoked-id-11"),
+		}
+		issuedCerts1 := [][]byte{
+			[]byte("issued-id-001"),
+			[]byte("issued-id-002"),
+			[]byte("issued-id-003"),
+			[]byte("issued-id-006"),
+			[]byte("revoked-id-1"),
+			[]byte("revoked-id-11"),
+		}
+		issuedCerts2 := [][]byte{
+			[]byte("revoked-id-111"),
+		}
+		issuedCerts3 := [][]byte{
+			[]byte("issued-id-333"),
+		}
+		revokedCerts2 := [][]byte{
+			[]byte("revoked-id-111"),
+		}
+		// First epoch
+		_, _ = util.NewKeyPair(2048)
+		controller, _ := responder.NewController()
+		controller.SetFrequency(2 * time.Second)
+		controller.AddCertificates(issuedCerts1)
+		controller.AddRevokedCertificates(revokedCerts1)
+		ch := make(chan error)
+		done := make(chan bool)
+		controller.StartPeriod(done, ch)
 
-	err := <-ch
-	if err != nil {
-		log.Fatalf("error in batch-handler %v", err)
-	}
-	for _, leaf := range controller.CurrentLandmark.CTree.IssuedMT.Leaves {
-		fmt.Println(string(leaf))
-	}
-	fmt.Println("--Done--")
+		err := <-ch
+		if err != nil {
+			log.Fatalf("error in batch-handler %v", err)
+		}
+		for _, leaf := range controller.CurrentLandmark.CTree.IssuedMT.Leaves {
+			fmt.Println(string(leaf))
+		}
+		fmt.Println("--Done--")
 
-	// 2nd Epoch
-	controller.AddCertificates(issuedCerts2)
-	controller.AddRevokedCertificates(revokedCerts2)
-	controller.StartPeriod(ch)
+		// 2nd Epoch
+		controller.AddCertificates(issuedCerts2)
+		controller.AddRevokedCertificates(revokedCerts2)
+		controller.StartPeriod(ch, done)
 
-	controller.AddCertificates(issuedCerts3)
+		controller.AddCertificates(issuedCerts3)
 
-	l := controller.CurrentLandmark
+		err = <-ch
+		if err != nil {
+			log.Fatalf("error in batch-handler %v", err)
+		}
+		for _, leaf := range controller.CurrentLandmark.CTree.IssuedMT.Leaves {
+			fmt.Println(string(leaf))
+		}
+		fmt.Println("--Done--")
 
-	err = <-ch
-	if err != nil {
-		log.Fatalf("error in batch-handler %v", err)
-	}
-	for _, leaf := range controller.CurrentLandmark.CTree.IssuedMT.Leaves {
-		fmt.Println(string(leaf))
-	}
-	fmt.Println("--Done--")
-
-	controller.StartPeriod(ch)
-	lm, err := controller.GetLandmarkTreeFromTime(l.Date)
-	if err != nil {
-		_ = fmt.Errorf("%v", err)
-	}
-	err = <-ch
-	if err != nil {
-		log.Fatalf("error in batch-handler %v", err)
-	}
-
-	fmt.Println(lm)
+		controller.StartPeriod(ch)
+		err = <-ch
+		if err != nil {
+			log.Fatalf("error in batch-handler %v", err)
+		}
+	*/
 	/*
 
 		revokedCerts := [][]byte{

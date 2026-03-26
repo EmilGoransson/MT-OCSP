@@ -83,20 +83,35 @@ func (c *Controller) SetFrequency(t time.Duration) {
 
 	c.Frequency = t
 }
-func (c *Controller) StartPeriod(ch chan<- error) {
+func (c *Controller) StartPeriod(done chan bool, ch chan<- error) {
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	freq := c.Frequency
-	c.mu.Unlock()
 
 	fmt.Println("--Started period!--", freq)
-	time.AfterFunc(freq, func() {
-		err := c.UpdateController()
-		if ch != nil {
-			ch <- err
+
+	ticker := time.NewTicker(freq)
+
+	go func() {
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				{
+					return
+				}
+			case _ = <-ticker.C:
+				{
+					err := c.updateController()
+					if err != nil && ch != nil {
+						ch <- fmt.Errorf("when updating, %v", err)
+					}
+				}
+			}
 		}
-	})
+	}()
 }
-func (c *Controller) UpdateController() error {
+func (c *Controller) updateController() error {
 	fmt.Println("Updating!")
 	issued, revoked := c.Certificates.refresh()
 
