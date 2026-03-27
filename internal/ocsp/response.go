@@ -15,7 +15,7 @@ const (
 // TODO: Should actully contain the landmark proof
 type Response struct {
 	Status    int8
-	timestamp time.Time
+	Timestamp time.Time
 	Proof     *LandmarkProof
 }
 

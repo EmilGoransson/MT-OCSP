@@ -48,7 +48,7 @@ type CombinedProof struct {
 // TODO: use the same revocation tree as last epoch & remove it
 // NewLandmark commits a combinedTree to the Log.
 func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
-	// Commit curTree and data to the Log (can include timestamp if needed)
+	// Commit curTree and data to the Log (can include Timestamp if needed)
 	err := l.AppendToLog(c.Root)
 	if err != nil {
 		return nil, fmt.Errorf("adding combinedTree to Log, %v", err)
@@ -151,6 +151,9 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	// Generate Append Log proof
 	// Find hash id
 	logProof, err := l.Log.NewProof(l.LogIndex)
+	if err != nil {
+		return nil, err
+	}
 
 	return &LandmarkProof{
 		LogProof:      logProof,

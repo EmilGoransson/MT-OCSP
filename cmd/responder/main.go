@@ -44,8 +44,8 @@ func main() {
 	http.HandleFunc("/stop", s.stop)
 	http.HandleFunc("/cert/add", s.addCertificates)
 	http.HandleFunc("/cert/revoke", s.addRevokedCertificates)
-	http.HandleFunc("/test/add", testAddCert)
-	http.HandleFunc("/test/revoke", testRevokeCert)
+	http.HandleFunc("/test/cert/add", testAddCert)
+	http.HandleFunc("/test/cert/revoke", testRevokeCert)
 	http.HandleFunc("/test/proof/response", TestNewResponse)
 	http.HandleFunc("/proof/response", s.NewResponse)
 
@@ -230,6 +230,9 @@ func (s *server) getLandmarkProof(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = json.Unmarshal(body, &cert)
+	if err != nil {
+		panic(err)
+	}
 
 	proof, err := s.c.CurrentLandmark.NewLandmarkProof(cert)
 
@@ -272,7 +275,14 @@ func (s *server) NewResponse(w http.ResponseWriter, r *http.Request) {
 	res, err := ocsp.NewResponse(bodyStruct.Certificate, lm)
 	fmt.Println(res)
 	retBody, err := json.Marshal(res)
-	w.Write(retBody)
+	if err != nil {
+		http.Error(w, "failed to marshal response", http.StatusInternalServerError)
+		return
+	}
+	_, err = w.Write(retBody)
+	if err != nil {
+		return
+	}
 	fmt.Println("Found Landmark: ", lm)
 }
 func TestNewResponse(w http.ResponseWriter, r *http.Request) {
@@ -291,7 +301,7 @@ func TestNewResponse(w http.ResponseWriter, r *http.Request) {
 	lmBody := struct {
 		Status    int8               `json:"Status"`
 		Timestamp time.Time          `json:"Timestamp"`
-		Proof     ocsp.LandmarkProof `json:"LandmarkProof"`
+		Proof     ocsp.LandmarkProof `json:"Proof"`
 	}{}
 	b := bytes.NewBuffer(out)
 	response, err := http.Post("http://localhost:8080/proof/response", "application/json", b)
@@ -305,10 +315,9 @@ func TestNewResponse(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 		err = json.Unmarshal(resBody, &lmBody)
-		// TODO: the body is empty for some reaosn..?
 		fmt.Println(lmBody)
 	}
 
 	//json.Unmarshal(response.Body, &body)
-	fmt.Println("revoked")
+	//fmt.Println("revoked")
 }

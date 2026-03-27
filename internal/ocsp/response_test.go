@@ -31,8 +31,8 @@ func TestNewMerkleResponse(t *testing.T) {
 		if resp.Proof == nil {
 			t.Error("Expected proof to be set in response")
 		}
-		if resp.timestamp.IsZero() {
-			t.Error("Expected timestamp to be set")
+		if resp.Timestamp.IsZero() {
+			t.Error("Expected Timestamp to be set")
 		}
 	})
 

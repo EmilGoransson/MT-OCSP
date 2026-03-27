@@ -15,7 +15,7 @@ var DefaultMerkleConfig = &mt.Config{
 }
 
 type certHash struct {
-	hash []byte
+	Hash []byte
 }
 type Sorted struct {
 	*mt.MerkleTree
@@ -23,14 +23,14 @@ type Sorted struct {
 type test interface {
 }
 type ExclusionProofSorted struct {
-	lVal   []byte
-	rVal   []byte
-	lProof *mt.Proof
-	rProof *mt.Proof
+	LVal   []byte
+	RVal   []byte
+	LProof *mt.Proof
+	RProof *mt.Proof
 }
 
 func (t *certHash) Serialize() ([]byte, error) {
-	return t.hash, nil
+	return t.Hash, nil
 }
 
 func ByteSliceToDataBlock(b [][]byte) ([]mt.DataBlock, error) {
@@ -47,7 +47,7 @@ func ByteSliceToDataBlock(b [][]byte) ([]mt.DataBlock, error) {
 }
 func ByteToDataBlock(b []byte) (mt.DataBlock, error) {
 	block := &certHash{
-		hash: b,
+		Hash: b,
 	}
 	return block, nil
 }
@@ -62,24 +62,24 @@ func ValidateExclusion(b []byte, proof *ExclusionProofSorted, root []byte, c *mt
 
 	// 3 cases
 	//case 2 // validate the case
-	if proof.lProof != nil && proof.rProof != nil {
+	if proof.LProof != nil && proof.RProof != nil {
 		// You expect b to be in the middle, so
-		if bytes.Compare(b, proof.lVal) <= 0 || bytes.Compare(b, proof.rVal) >= 0 {
-			return false, fmt.Errorf("expected lVal < b < rVal: lVal: %x, b: %x, rVal: %x", proof.lVal, b, proof.rVal)
+		if bytes.Compare(b, proof.LVal) <= 0 || bytes.Compare(b, proof.RVal) >= 0 {
+			return false, fmt.Errorf("expected LVal < b < RVal: LVal: %x, b: %x, RVal: %x", proof.LVal, b, proof.RVal)
 		}
-		lBlock, err := ByteToDataBlock(proof.lVal)
+		lBlock, err := ByteToDataBlock(proof.LVal)
 		if err != nil {
 			return false, err
 		}
-		rBlock, err := ByteToDataBlock(proof.rVal)
+		rBlock, err := ByteToDataBlock(proof.RVal)
 		if err != nil {
 			return false, err
 		}
-		validLeft, err := mt.Verify(lBlock, proof.lProof, root, c)
+		validLeft, err := mt.Verify(lBlock, proof.LProof, root, c)
 		if err != nil {
 			return false, err
 		}
-		validRight, err := mt.Verify(rBlock, proof.rProof, root, c)
+		validRight, err := mt.Verify(rBlock, proof.RProof, root, c)
 		if err != nil {
 			return false, err
 		}
@@ -89,15 +89,15 @@ func ValidateExclusion(b []byte, proof *ExclusionProofSorted, root []byte, c *mt
 		return true, nil
 	}
 	// Case 1, insertion at the left-most
-	if proof.lProof != nil {
-		if bytes.Compare(b, proof.lVal) > 0 {
-			return false, fmt.Errorf("bad proof: expected b to be smaller than lVal, b: %x, lVal: %x", b, proof.lVal)
+	if proof.LProof != nil {
+		if bytes.Compare(b, proof.LVal) > 0 {
+			return false, fmt.Errorf("bad proof: expected b to be smaller than LVal, b: %x, LVal: %x", b, proof.LVal)
 		}
-		lBlock, err := ByteToDataBlock(proof.lVal)
+		lBlock, err := ByteToDataBlock(proof.LVal)
 		if err != nil {
 			return false, err
 		}
-		validLeft, err := mt.Verify(lBlock, proof.lProof, root, c)
+		validLeft, err := mt.Verify(lBlock, proof.LProof, root, c)
 		if err != nil {
 			return false, err
 		}
@@ -108,15 +108,15 @@ func ValidateExclusion(b []byte, proof *ExclusionProofSorted, root []byte, c *mt
 
 	}
 	// Case 3
-	if proof.rProof != nil {
-		if bytes.Compare(b, proof.rVal) < 0 {
-			return false, fmt.Errorf("bad format: expected b to be larger than rVal, b: %x, lVal: %x", b, proof.rVal)
+	if proof.RProof != nil {
+		if bytes.Compare(b, proof.RVal) < 0 {
+			return false, fmt.Errorf("bad format: expected b to be larger than RVal, b: %x, LVal: %x", b, proof.RVal)
 		}
-		rBlock, err := ByteToDataBlock(proof.rVal)
+		rBlock, err := ByteToDataBlock(proof.RVal)
 		if err != nil {
 			return false, err
 		}
-		validRight, err := mt.Verify(rBlock, proof.rProof, root, c)
+		validRight, err := mt.Verify(rBlock, proof.RProof, root, c)
 		if err != nil {
 			return false, err
 		}
@@ -134,24 +134,24 @@ func (t *Sorted) ValidateExclusion(b []byte, proof *ExclusionProofSorted) (bool,
 
 	// 3 cases
 	//case 2 // validate the case
-	if proof.lProof != nil && proof.rProof != nil {
+	if proof.LProof != nil && proof.RProof != nil {
 		// You expect b to be in the middle, so
-		if bytes.Compare(b, proof.lVal) <= 0 || bytes.Compare(b, proof.rVal) >= 0 {
-			return false, fmt.Errorf("expected lVal < b < rVal: lVal: %x, b: %x, rVal: %x", proof.lVal, b, proof.rVal)
+		if bytes.Compare(b, proof.LVal) <= 0 || bytes.Compare(b, proof.RVal) >= 0 {
+			return false, fmt.Errorf("expected LVal < b < RVal: LVal: %x, b: %x, RVal: %x", proof.LVal, b, proof.RVal)
 		}
-		lBlock, err := ByteToDataBlock(proof.lVal)
+		lBlock, err := ByteToDataBlock(proof.LVal)
 		if err != nil {
 			return false, err
 		}
-		rBlock, err := ByteToDataBlock(proof.rVal)
+		rBlock, err := ByteToDataBlock(proof.RVal)
 		if err != nil {
 			return false, err
 		}
-		validLeft, err := t.Verify(lBlock, proof.lProof)
+		validLeft, err := t.Verify(lBlock, proof.LProof)
 		if err != nil {
 			return false, err
 		}
-		validRight, err := t.Verify(rBlock, proof.rProof)
+		validRight, err := t.Verify(rBlock, proof.RProof)
 		if err != nil {
 			return false, err
 		}
@@ -161,15 +161,15 @@ func (t *Sorted) ValidateExclusion(b []byte, proof *ExclusionProofSorted) (bool,
 		return true, nil
 	}
 	// Case 1, insertion at the left-most
-	if proof.lProof != nil {
-		if bytes.Compare(b, proof.lVal) > 0 {
-			return false, fmt.Errorf("bad proof: expected b to be smaller than lVal, b: %x, lVal: %x", b, proof.lVal)
+	if proof.LProof != nil {
+		if bytes.Compare(b, proof.LVal) > 0 {
+			return false, fmt.Errorf("bad proof: expected b to be smaller than LVal, b: %x, LVal: %x", b, proof.LVal)
 		}
-		lBlock, err := ByteToDataBlock(proof.lVal)
+		lBlock, err := ByteToDataBlock(proof.LVal)
 		if err != nil {
 			return false, err
 		}
-		validLeft, err := t.Verify(lBlock, proof.lProof)
+		validLeft, err := t.Verify(lBlock, proof.LProof)
 		if err != nil {
 			return false, err
 		}
@@ -180,15 +180,15 @@ func (t *Sorted) ValidateExclusion(b []byte, proof *ExclusionProofSorted) (bool,
 
 	}
 	// Case 3
-	if proof.rProof != nil {
-		if bytes.Compare(b, proof.rVal) < 0 {
-			return false, fmt.Errorf("bad format: expected b to be larger than rval, b: %x, lVal: %x", b, proof.rVal)
+	if proof.RProof != nil {
+		if bytes.Compare(b, proof.RVal) < 0 {
+			return false, fmt.Errorf("bad format: expected b to be larger than rval, b: %x, LVal: %x", b, proof.RVal)
 		}
-		rBlock, err := ByteToDataBlock(proof.rVal)
+		rBlock, err := ByteToDataBlock(proof.RVal)
 		if err != nil {
 			return false, err
 		}
-		validRight, err := t.Verify(rBlock, proof.rProof)
+		validRight, err := t.Verify(rBlock, proof.RProof)
 		if err != nil {
 			return false, err
 		}
@@ -206,10 +206,10 @@ func (t *Sorted) NewNonMemberProof(hash []byte) (*ExclusionProofSorted, error) {
 		return nil, err
 	}
 	ret := &ExclusionProofSorted{
-		lVal:   nil,
-		rVal:   nil,
-		lProof: nil,
-		rProof: nil,
+		LVal:   nil,
+		RVal:   nil,
+		LProof: nil,
+		RProof: nil,
 	}
 	// Get the leaves
 	leaves := t.Leaves
@@ -243,21 +243,21 @@ func (t *Sorted) NewNonMemberProof(hash []byte) (*ExclusionProofSorted, error) {
 		if err != nil {
 			return nil, err
 		}
-		ret.lProof, err = t.Proof(bDatablockL)
+		ret.LProof, err = t.Proof(bDatablockL)
 		if err != nil {
 			return nil, err
 		}
-		ret.lVal = leaves[index]
-		ret.rProof = nil
+		ret.LVal = leaves[index]
+		ret.RProof = nil
 		return ret, nil
 	}
 	// Case 3
 	if index == len(leaves) {
 		leafR := leaves[index-1]
 		bDatablockR, err := ByteToDataBlock(leafR)
-		ret.lProof = nil
-		ret.rProof, err = t.Proof(bDatablockR)
-		ret.rVal = leafR
+		ret.LProof = nil
+		ret.RProof, err = t.Proof(bDatablockR)
+		ret.RVal = leafR
 		if err != nil {
 			return nil, err
 		}
@@ -282,10 +282,10 @@ func (t *Sorted) NewNonMemberProof(hash []byte) (*ExclusionProofSorted, error) {
 	if err != nil {
 		return nil, err
 	}
-	ret.lProof = proofL
-	ret.rProof = proofR
-	ret.lVal = leafL
-	ret.rVal = leafR
+	ret.LProof = proofL
+	ret.RProof = proofR
+	ret.LVal = leafL
+	ret.RVal = leafR
 	return ret, nil
 }
 
