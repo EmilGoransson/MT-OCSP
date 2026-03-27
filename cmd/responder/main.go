@@ -305,6 +305,7 @@ func TestNewResponse(w http.ResponseWriter, r *http.Request) {
 			panic(err)
 		}
 		err = json.Unmarshal(resBody, &lmBody)
+		// TODO: the body is empty for some reaosn..?
 		fmt.Println(lmBody)
 	}
 
