@@ -52,12 +52,15 @@ func main() {
 	http.HandleFunc("/landmark", s.getSignedLandmark)
 	http.HandleFunc("/proof/hash", s.getLandmarkProof)
 	fmt.Println("Listening at: ", "localhost:", port)
-	srv := http.Server{
-		Addr:         port,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
-	}
-	err := srv.ListenAndServe()
+	/*
+
+
+		srv := http.Server{
+			Addr:         port,
+			ReadTimeout:  15 * time.Second,
+			WriteTimeout: 15 * time.Second,
+		} */
+	err := http.ListenAndServe(port, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -266,6 +269,10 @@ func (s *server) NewResponse(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
+	res, err := ocsp.NewResponse(bodyStruct.Certificate, lm)
+	fmt.Println(res)
+	retBody, err := json.Marshal(res)
+	w.Write(retBody)
 	fmt.Println("Found Landmark: ", lm)
 }
 func TestNewResponse(w http.ResponseWriter, r *http.Request) {
@@ -281,6 +288,11 @@ func TestNewResponse(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
+	lmBody := struct {
+		Status    int8               `json:"Status"`
+		Timestamp time.Time          `json:"Timestamp"`
+		Proof     ocsp.LandmarkProof `json:"LandmarkProof"`
+	}{}
 	b := bytes.NewBuffer(out)
 	response, err := http.Post("http://localhost:8080/proof/response", "application/json", b)
 	if err != nil {
@@ -288,8 +300,14 @@ func TestNewResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	if response.StatusCode == http.StatusOK {
 		fmt.Println("200")
+		resBody, err := io.ReadAll(response.Body)
+		if err != nil {
+			panic(err)
+		}
+		err = json.Unmarshal(resBody, &lmBody)
+		fmt.Println(lmBody)
 	}
-	fmt.Println(response.Body)
+
 	//json.Unmarshal(response.Body, &body)
 	fmt.Println("revoked")
 }
