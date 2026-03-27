@@ -32,8 +32,8 @@ type SignedLandmark struct {
 }
 
 type LandmarkProof struct {
-	logProof      [][]byte
-	logIndex      uint64
+	LogProof      [][]byte
+	LogIndex      uint64
 	CombinedProof *CombinedProof
 }
 
@@ -65,6 +65,9 @@ func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
 // NewSignedHead hashes together data and signs the hash
 func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandmark, error) {
 	// Signs the hash of (RootHash + TreeSize + Date
+	if l == nil {
+		return nil, fmt.Errorf("landmark is nil")
+	}
 	hasher := h.New()
 	rootHash, err := l.Log.RootHash()
 	if err != nil {
@@ -150,8 +153,8 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	logProof, err := l.Log.NewProof(l.LogIndex)
 
 	return &LandmarkProof{
-		logProof:      logProof,
-		logIndex:      l.LogIndex,
+		LogProof:      logProof,
+		LogIndex:      l.LogIndex,
 		CombinedProof: cProof,
 	}, nil
 }

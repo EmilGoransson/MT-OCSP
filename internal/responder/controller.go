@@ -69,7 +69,8 @@ func (c *CertificatesNext) addRevoked(certs [][]byte) {
 func (c *CertificatesNext) refresh() (issued [][]byte, revoked [][]byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-
+	fmt.Println("Issued certs: ", c.IssuedCertsNext)
+	fmt.Println("Revoked certs: ", c.RevokedCertsNext)
 	issued = c.IssuedCertsNext
 	revoked = c.RevokedCertsNext
 	c.IssuedCertsNext = nil
@@ -132,9 +133,9 @@ func (c *Controller) updateController() error {
 	return nil
 }
 
-// GetCombinedTreeFromDate Finds a Landmark that covered the date.
+// GetLandmarkFromDate Finds a Landmark that covered the date.
 // Idea: Each cert is issued during some time, placing them within one epoch.
-func (c *Controller) GetCombinedTreeFromDate(h []byte, date time.Time) (*ocsp.Landmark, error) {
+func (c *Controller) GetLandmarkFromDate(h []byte, date time.Time) (*ocsp.Landmark, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -147,4 +148,21 @@ func (c *Controller) GetCombinedTreeFromDate(h []byte, date time.Time) (*ocsp.La
 		return nil, nil
 	}
 	return c.Landmarks[s], nil
+}
+
+// GetLandmarkFromBytes is a Naive and slow solution
+func (c *Controller) GetLandmarkFromBytes(h []byte) (*ocsp.Landmark, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	// For each landmark,
+	for _, lm := range c.Landmarks {
+		if inTree, err := lm.CTree.Has(h); inTree {
+			if err != nil {
+				return nil, err
+			}
+			return lm, nil
+		}
+	}
+	// Unknown status
+	return nil, nil
 }

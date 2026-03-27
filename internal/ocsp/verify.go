@@ -74,10 +74,10 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 	// use the hash to verify its inclusion in the Log:
 	err = proof.VerifyInclusion(
 		rfc6962.DefaultHasher,
-		m.Proof.logIndex,
+		m.Proof.LogIndex,
 		sl.LogSize,
 		hash,
-		m.Proof.logProof,
+		m.Proof.LogProof,
 		sl.LogRoot,
 	)
 	if err != nil {

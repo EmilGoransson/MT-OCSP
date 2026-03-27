@@ -20,7 +20,7 @@ type Response struct {
 }
 
 // TODO: ---PLACEHOLDER---
-// TODO: actually search and find the root
+// TODO:
 func findTreeTMP(rHash []byte) (*tree.Combined, error) {
 	return nil, nil
 }
