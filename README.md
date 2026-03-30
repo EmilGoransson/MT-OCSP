@@ -1,5 +1,35 @@
 To fix: 
+Unknown case. Its currently skipped over in NewResponse because new response takes a landmark (which is fetched from the hash), but since the cert isnt a part of the issue tree,
+landmark is passed as nil. 
+Perhaps- make it date-based?
 
+
+Bug:
+Verify flow fails if: 
+Reason: They belong to two different trees.
+In Verify I assume that both together creates the hash that i commited to the tree, however, that is not true.
+
+Change needed: Inclusion proof needs to include the rev-root for "that tree"
+Perhaps verify both side by side? 
+
+1) Epoch 1: Add cert
+2) Epoch 2: Revoke same cert
+3) Verify fails- mismatched root
+
+Succeeds if: 
+1) Epoch 1: Add cert & Revoke same cert
+2) Verify ok
+
+// Maybe add some guard against this => This works because rev is "copied" into the later epochs. certs thats been issued however, isnt
+1) Epoch 0: Revoke cert
+2) Epoch 1: Add cert
+3) Verify ok
+
+1) Epoch 1: Add cert
+2) Verify ok
+
+1) Epoch 0: Add cert
+2) Verify ok
 
 What implements what / Flow
 

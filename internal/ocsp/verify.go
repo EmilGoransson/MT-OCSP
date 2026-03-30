@@ -66,10 +66,13 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 			return false, fmt.Errorf("bad status, %d", m.Status)
 		}
 	}
+	// TODO: this doesnt work if they are of different "epochs", which is the common case
+	// Only works if they are from the same epoch
 	//Calculate the hash from issue + rev:
 	hasher := sha256.New()
-	hasher.Write(m.Proof.CombinedProof.IssueRoot)
-	hasher.Write(m.Proof.CombinedProof.RevRoot)
+	hasher.Write(m.Proof.CombinedProof.IssueRoot) // + "the current periods rev-hash"
+	hasher.Write(m.Proof.CombinedProof.RevRoot)   // + "latest landmarks issue-hash"
+	// Would have to perform two log-verifications here
 	hash = hasher.Sum(nil)
 	// use the hash to verify its inclusion in the Log:
 	err = proof.VerifyInclusion(

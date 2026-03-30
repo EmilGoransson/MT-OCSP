@@ -41,8 +41,10 @@ type CombinedProof struct {
 	IssueRoot     []byte // Placeholder / temp fix
 	RevRoot       []byte // Placeholder / temp fix
 	IssueProof    *merkletree.Proof
+	IssueEpochRev []byte
 	NonIssueProof *tree.ExclusionProofSorted
 	RevProof      *smt.SparseMerkleProof
+	RevEpochIssue []byte
 }
 
 // TODO: use the same revocation tree as last epoch & remove it
@@ -102,6 +104,11 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 
 }
 
+// Rev is always in the latest landmark.
+// So, we only need the issue-landmark. l is issue landmark in this case
+
+// lNewest contains the rev-combined-tree always
+
 // newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
 func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	// Generate combinedTree Proof
@@ -130,14 +137,19 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 			RevProof:      nil,
 		}
 	} else {
+		// IssueProof needs the rev-root of its "own" combined tree
+		// RevProof needs the issue-root of its "own" combined tree
+
 		issuedProof, err = l.CTree.NewMembershipProofIssued(hash)
 		if err != nil {
 			return nil, fmt.Errorf("fetching membershipProof, %v", err)
 		}
-		rProof, err = l.CTree.NewMembershipProofRevoked(hash)
+		rProof, err = lNewest.CTree.NewMembershipProofRevoked(hash)
 		cProof = &CombinedProof{
 			IssueRoot:     l.CTree.IssuedMT.Root,
-			RevRoot:       l.CTree.RevSMT.Root(),
+			IssueEpochRev: l.CTree.RevSMT.Root(),
+			RevRoot:       lNewest.CTree.RevSMT.Root(),
+			RevEpochIssue: lNewest.CTree.IssuedMT.Root,
 			IssueProof:    issuedProof,
 			RevProof:      &rProof,
 			NonIssueProof: nil,

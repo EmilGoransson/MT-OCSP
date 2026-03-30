@@ -26,22 +26,31 @@ func findTreeTMP(rHash []byte) (*tree.Combined, error) {
 }
 
 // What is included in the response?
-// TODO: Temp implementation, rootHash shall be given as part of the arguments
-func NewResponse(certHash []byte, l *Landmark) (*Response, error) {
+// TODO: Handle unknown case- is currnetly skipped. Might need its own function
+func NewResponse(certHash []byte, l *Landmark, lNewest *Landmark) (*Response, error) {
 	var status int8
-	status, err := getStatus(l.CTree, certHash)
-	if err != nil {
-		return nil, err
-	}
-	p, err := l.NewLandmarkProof(certHash)
-	if err != nil {
-		return nil, fmt.Errorf("generating proof for util, %v", err)
+	var err error
+	var p *LandmarkProof
+	if l == nil {
+		status = Unknown
+	} else {
+		status, err = getStatus(l.CTree, certHash)
+		if err != nil {
+			return nil, err
+		}
+		p, err = l.NewLandmarkProof(certHash, lNewest)
+		if err != nil {
+			return nil, fmt.Errorf("generating proof for util, %v", err)
+		}
 	}
 	return &Response{status, time.Now(), p}, nil
 }
 
 // getStatus finds the status of a certificate from a *combinedTree, and returns Good = 0, Revoked = 1 or Unknown = 2
 func getStatus(cTree *tree.Combined, hash []byte) (int8, error) {
+	if cTree == nil {
+		return Unknown, nil
+	}
 	isRevoked, err := cTree.RevSMT.Has(hash)
 	if err != nil {
 		return -1, err

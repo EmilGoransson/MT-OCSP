@@ -18,6 +18,7 @@ import (
 type server struct {
 	pKey    *rsa.PrivateKey
 	c       *responder.Controller
+	latest  *ocsp.Landmark
 	signed  *ocsp.SignedLandmark
 	done    chan bool
 	chError chan error
@@ -29,7 +30,7 @@ func main() {
 	ch := make(chan error)
 	done := make(chan bool)
 	c, _ := responder.NewController()
-	c.SetFrequency(1 * time.Second)
+	c.SetFrequency(20 * time.Second)
 	key, _ := util.NewKeyPair(2048)
 	s := &server{
 		pKey:    key,
@@ -37,6 +38,7 @@ func main() {
 		done:    done,
 		chError: ch,
 		signed:  nil,
+		latest:  nil,
 	}
 
 	http.HandleFunc("/ping", s.ping)
@@ -158,7 +160,8 @@ func (s *server) getSignedLandmark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.signed = signed
-	err = json.NewEncoder(w).Encode(signed)
+	out, err := json.Marshal(signed)
+	w.Write(out)
 	if err != nil {
 		return
 	}
@@ -270,7 +273,7 @@ func (s *server) NewResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	lm, err := s.c.GetLandmarkFromBytes(bodyStruct.Certificate)
 	if err != nil {
-		panic(err)
+		log.Fatalf("finding the landmark %v", err)
 	}
 	res, err := ocsp.NewResponse(bodyStruct.Certificate, lm)
 	fmt.Println(res)
@@ -298,11 +301,7 @@ func TestNewResponse(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	lmBody := struct {
-		Status    int8               `json:"Status"`
-		Timestamp time.Time          `json:"Timestamp"`
-		Proof     ocsp.LandmarkProof `json:"Proof"`
-	}{}
+	lmBody := ocsp.Response{}
 	b := bytes.NewBuffer(out)
 	response, err := http.Post("http://localhost:8080/proof/response", "application/json", b)
 	if err != nil {

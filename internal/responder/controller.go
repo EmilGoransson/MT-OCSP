@@ -127,7 +127,6 @@ func (c *Controller) updateController() error {
 	if err != nil {
 		return err
 	}
-
 	c.Landmarks = append(c.Landmarks, newLandmark)
 	c.CurrentLandmark = newLandmark
 	return nil
