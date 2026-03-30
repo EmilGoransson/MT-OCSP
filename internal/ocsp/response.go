@@ -12,46 +12,52 @@ const (
 	Unknown
 )
 
-// TODO: Should actully contain the landmark proof
 type Response struct {
 	Status    int8
-	timestamp time.Time
+	Timestamp time.Time
 	Proof     *LandmarkProof
 }
 
-// TODO: ---PLACEHOLDER---
-// TODO: actually search and find the root
-func findTreeTMP(rHash []byte) (*tree.Combined, error) {
-	return nil, nil
-}
-
 // What is included in the response?
-// TODO: Temp implementation, rootHash shall be given as part of the arguments
-func NewResponse(certHash []byte, l *Landmark) (*Response, error) {
+// TODO: Handle unknown case- is currnetly skipped. Might need its own function
+func NewResponse(certHash []byte, l *Landmark, lNewest *Landmark) (*Response, error) {
 	var status int8
-	status, err := getStatus(l.CTree, certHash)
-	if err != nil {
-		return nil, err
+	var err error
+	var p *LandmarkProof
+	if lNewest == nil {
+		lNewest = l
 	}
-	p, err := l.NewLandmarkProof(certHash)
-	if err != nil {
-		return nil, fmt.Errorf("generating proof for util, %v", err)
+	//TODO: handle unknown status, add "date-proof" / exclusion proof
+	if l == nil {
+		status = Unknown
+	} else {
+		status, err = getStatus(l.CTree, lNewest.CTree, certHash)
+		if err != nil {
+			return nil, err
+		}
+		p, err = l.NewLandmarkProof(certHash, lNewest)
+		if err != nil {
+			return nil, fmt.Errorf("generating proof for util, %v", err)
+		}
 	}
 	return &Response{status, time.Now(), p}, nil
 }
 
-// getStatus finds the status of a certificate from a *combinedTree, and returns Good = 0, Revoked = 1 or Unknown = 2
-func getStatus(cTree *tree.Combined, hash []byte) (int8, error) {
-	isRevoked, err := cTree.RevSMT.Has(hash)
-	if err != nil {
-		return -1, err
+// getStatus finds the status of a certificate from an issue-tree and the latest rev-tree,
+func getStatus(issueTree *tree.Combined, newestTree *tree.Combined, hash []byte) (int8, error) {
+	if issueTree == nil {
+		return Unknown, nil
 	}
-	isIssued, err := cTree.Has(hash)
+	isIssued, err := issueTree.Has(hash)
 	if err != nil {
 		return -1, err
 	}
 	if !isIssued {
 		return Unknown, nil
+	}
+	isRevoked, err := newestTree.RevSMT.Has(hash)
+	if err != nil {
+		return -1, err
 	}
 	if !isRevoked {
 		return Good, nil

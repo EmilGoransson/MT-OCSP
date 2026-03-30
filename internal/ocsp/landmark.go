@@ -32,23 +32,27 @@ type SignedLandmark struct {
 }
 
 type LandmarkProof struct {
-	logProof      [][]byte
-	logIndex      uint64
-	CombinedProof *CombinedProof
+	LogProof       [][]byte
+	LogIndex       uint64
+	NewestLogProof [][]byte
+	NewestLogIndex uint64 // Index of the newest landmark in the log
+	CombinedProof  *CombinedProof
 }
 
 type CombinedProof struct {
 	IssueRoot     []byte // Placeholder / temp fix
 	RevRoot       []byte // Placeholder / temp fix
 	IssueProof    *merkletree.Proof
+	IssueEpochRev []byte
 	NonIssueProof *tree.ExclusionProofSorted
 	RevProof      *smt.SparseMerkleProof
+	RevEpochIssue []byte
 }
 
 // TODO: use the same revocation tree as last epoch & remove it
 // NewLandmark commits a combinedTree to the Log.
 func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
-	// Commit curTree and data to the Log (can include timestamp if needed)
+	// Commit curTree and data to the Log (can include Timestamp if needed)
 	err := l.AppendToLog(c.Root)
 	if err != nil {
 		return nil, fmt.Errorf("adding combinedTree to Log, %v", err)
@@ -65,6 +69,9 @@ func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
 // NewSignedHead hashes together data and signs the hash
 func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandmark, error) {
 	// Signs the hash of (RootHash + TreeSize + Date
+	if l == nil {
+		return nil, fmt.Errorf("landmark is nil")
+	}
 	hasher := h.New()
 	rootHash, err := l.Log.RootHash()
 	if err != nil {
@@ -99,13 +106,21 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 
 }
 
+// Rev is always in the latest landmark.
+// So, we only need the issue-landmark. l is issue landmark in this case
+
+// lNewest contains the rev-combined-tree always
+
 // newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
-func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
+func (l *Landmark) NewLandmarkProof(hash []byte, lNewest *Landmark) (*LandmarkProof, error) {
 	// Generate combinedTree Proof
-	if l.CTree.RevSMT.SparseMerkleTree == nil {
-		return nil, fmt.Errorf("empty revocation, froze before generating proof")
+	if l == nil {
+		return nil, fmt.Errorf("landmark is nil")
 	}
-	status, err := getStatus(l.CTree, hash)
+	if lNewest == nil {
+		lNewest = l
+	}
+	status, err := getStatus(l.CTree, lNewest.CTree, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -127,31 +142,61 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 			RevProof:      nil,
 		}
 	} else {
+		// IssueProof needs the rev-root of its "own" combined tree
+		// RevProof needs the issue-root of its "own" combined tree
+		if lNewest.CTree == nil || lNewest.CTree.RevSMT == nil || lNewest.CTree.RevSMT.SparseMerkleTree == nil {
+			return nil, fmt.Errorf("revocation tree unavailable for latest epoch")
+		}
+
 		issuedProof, err = l.CTree.NewMembershipProofIssued(hash)
 		if err != nil {
 			return nil, fmt.Errorf("fetching membershipProof, %v", err)
 		}
-		rProof, err = l.CTree.NewMembershipProofRevoked(hash)
+		rProof, err = lNewest.CTree.NewMembershipProofRevoked(hash)
 		cProof = &CombinedProof{
 			IssueRoot:     l.CTree.IssuedMT.Root,
-			RevRoot:       l.CTree.RevSMT.Root(),
+			IssueEpochRev: l.CTree.RevSMT.Root(),
+			RevRoot:       lNewest.CTree.RevSMT.Root(),
+			RevEpochIssue: lNewest.CTree.IssuedMT.Root,
 			IssueProof:    issuedProof,
 			RevProof:      &rProof,
 			NonIssueProof: nil,
 		}
 
 		if err != nil {
-			return &LandmarkProof{nil, 0, nil}, err
+			return &LandmarkProof{
+				LogProof:       nil,
+				LogIndex:       0,
+				NewestLogProof: nil,
+				NewestLogIndex: 0,
+				CombinedProof:  nil,
+			}, err
 		}
 	}
 
 	// Generate Append Log proof
 	// Find hash id
 	logProof, err := l.Log.NewProof(l.LogIndex)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate a log-inclusion proof for the newest landmark so that Verify can verify it against the log .
+	newestLogProof := logProof
+	newestLogIndex := l.LogIndex
+	if lNewest.LogIndex != l.LogIndex {
+		newestLogProof, err = lNewest.Log.NewProof(lNewest.LogIndex)
+		if err != nil {
+			return nil, fmt.Errorf("generating newest log proof, %v", err)
+		}
+		newestLogIndex = lNewest.LogIndex
+	}
 
 	return &LandmarkProof{
-		logProof:      logProof,
-		logIndex:      l.LogIndex,
-		CombinedProof: cProof,
+		LogProof:       logProof,
+		LogIndex:       l.LogIndex,
+		NewestLogProof: newestLogProof,
+		NewestLogIndex: newestLogIndex,
+		CombinedProof:  cProof,
 	}, nil
 }

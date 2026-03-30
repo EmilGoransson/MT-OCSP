@@ -109,7 +109,7 @@ func TestLandmarkLog(t *testing.T) {
 	})
 
 	t.Run("Epoch 2, Generate Proofs", func(t *testing.T) {
-		lm2Proof, err := lm2.NewLandmarkProof(issuedCerts2[1])
+		lm2Proof, err := lm2.NewLandmarkProof(issuedCerts2[1], lm2)
 		if err != nil {
 			t.Fatalf("creating proof for valid certificate: %v", err)
 		}
@@ -117,7 +117,7 @@ func TestLandmarkLog(t *testing.T) {
 			t.Fatal("expected non-nil proof for valid certificate")
 		}
 		revokedCert := issuedCerts2[0]
-		revokedProof, err := lm2.NewLandmarkProof(revokedCert)
+		revokedProof, err := lm2.NewLandmarkProof(revokedCert, lm2)
 		if err != nil {
 			t.Fatalf("creating proof for revoked certificate: %v", err)
 		}
@@ -127,14 +127,14 @@ func TestLandmarkLog(t *testing.T) {
 	})
 
 	t.Run("Epoch 2, Check Merkle Responses", func(t *testing.T) {
-		responseRevoked, err := NewResponse(issuedCerts2[0], lm2)
+		responseRevoked, err := NewResponse(issuedCerts2[0], lm2, lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for revoked util: %v", err)
 		}
 		if responseRevoked.Status != Revoked {
 			t.Errorf("expected status Revoked (%d), got %d", Revoked, responseRevoked.Status)
 		}
-		responseGood, err := NewResponse(issuedCerts2[1], lm2)
+		responseGood, err := NewResponse(issuedCerts2[1], lm2, lm2)
 		if err != nil {
 			t.Fatalf("creating merkle response for good util: %v", err)
 		}
@@ -147,7 +147,7 @@ func TestLandmarkLog(t *testing.T) {
 			// Test 3: Unknown (never issued)
 			unknownCert := []byte("this-util-was-never-issued")
 			hash := util.HashCert(unknownCert)
-			responseUnknown, err := NewResponse(hash, lm2)
+			responseUnknown, err := NewResponse(hash, lm2, lm2)
 			if err != nil {
 				t.Fatalf("creating merkle response for unknown util: %v", err)
 			}

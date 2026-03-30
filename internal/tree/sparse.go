@@ -17,7 +17,7 @@ type Sparse struct {
 func NewSparse() *Sparse {
 	nodeStore := smt.NewSimpleMap()
 	valueStore := smt.NewSimpleMap()
-	// nodeStore.Set(getStringHash("1"), getStringHash("One"))
+	// NodeStore.Set(getStringHash("1"), getStringHash("One"))
 	return &Sparse{nil, smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())}
 }
 
@@ -51,9 +51,9 @@ func getByteHash(bytes []byte) []byte {
 func smtTest() {
 
 	// Initialise two new key-value store to store the nodes and values of the tree
-	nodeStore := smt.NewSimpleMap()
+	NodeStore := smt.NewSimpleMap()
 	valueStore := smt.NewSimpleMap()
-	tree := smt.NewSparseMerkleTree(nodeStore, valueStore, sha256.New())
+	tree := smt.NewSparseMerkleTree(NodeStore, valueStore, sha256.New())
 
 	bCert, err := getRandomCert()
 	if err != nil {
@@ -90,7 +90,7 @@ func smtTest() {
 	if err != nil {
 		return
 	}
-	fmt.Println("hash exists?", is)
+	fmt.Println("Hash exists?", is)
 
 	is, err = tree.Has(getStringHash("not in tree"))
 

@@ -11,13 +11,13 @@ import (
 
 type Combined struct {
 	Root     []byte
-	date     time.Time
+	Date     time.Time
 	IssuedMT *Sorted
 	RevSMT   *Sparse
 }
 
 func NewEmptyTree() *Combined {
-	return &Combined{Root: nil, date: time.Now(), IssuedMT: nil, RevSMT: nil}
+	return &Combined{Root: nil, Date: time.Now(), IssuedMT: nil, RevSMT: nil}
 }
 
 // TODO: Perhaps create function that takes input blocks for MT and input blocks for Sparse & adds them to tree?
@@ -31,11 +31,7 @@ func NewCombined(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*C
 		return nil, fmt.Errorf("creating new sorted, %v", err)
 	}
 	// If there is a previous SMT, we want to build on top of that
-	if rTree != nil {
-		newSMT = rTree
-	} else {
-		newSMT = NewSparse()
-	}
+	newSMT = rTree
 	tree := &Combined{
 		Root:     nil,
 		IssuedMT: merkle,
@@ -66,7 +62,7 @@ func (c *Combined) AddBulkRevocationToTree(hashes [][]byte) ([]byte, error) {
 	for _, hash := range hashes {
 		in, err := c.RevSMT.Has(hash)
 		if in {
-			fmt.Println("overwriting existing hash-value")
+			fmt.Println("overwriting existing Hash-value")
 		}
 		newRoot, err = c.RevSMT.Update(hash, hash)
 		if err != nil {
@@ -102,7 +98,7 @@ func (c *Combined) validateSortedMTMembershipProof(b []byte, proof *merkletree.P
 	return isValid, nil
 }
 
-// NewMembershipProofIssued takes a hash, converts it into a data block, and returns proof
+// NewMembershipProofIssued takes a Hash, converts it into a data block, and returns proof
 func (c *Combined) NewMembershipProofIssued(hash []byte) (*merkletree.Proof, error) {
 
 	dataBlock, err := ByteToDataBlock(hash)
@@ -115,7 +111,7 @@ func (c *Combined) NewMembershipProofIssued(hash []byte) (*merkletree.Proof, err
 
 // NewNonMembershipProof TODO: Implement non membership proof in mt.merkletree
 // TODO: technically you can compress the proof further since there are some overlapping hashes.
-// 1) find the location where the hash would've been inserted if it existed in the tree
+// 1) find the location where the Hash would've been inserted if it existed in the tree
 // Case 1:Left-most- we only need the inclusion proof for the left-most item.
 // Case 2: middle of two nodes: We would need two inclusion proof for the "surrounding items"
 // Case 3:right-most- We only need the inclusion proof for the right most item
@@ -123,7 +119,7 @@ func (c *Combined) NewNonMembershipProof(hash []byte) (*ExclusionProofSorted, er
 	return c.IssuedMT.NewNonMemberProof(hash)
 }
 
-// hash takes a hash and returns a bool indicating if the tree Has the value or not
+// Hash takes a Hash and returns a bool indicating if the tree Has the value or not
 func (c *Combined) Has(hash []byte) (bool, error) {
 
 	return c.IssuedMT.has(hash)
