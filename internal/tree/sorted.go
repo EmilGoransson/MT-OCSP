@@ -232,9 +232,6 @@ func (t *Sorted) NewNonMemberProof(hash []byte) (*ExclusionProofSorted, error) {
 	// TODO: test with large util if its inserted at correct index
 	// What happens if there is a single util in the issue tree?
 	// Case 1, index = 0, we get the inclusion proof for index = 0, Case 3, if it should be inserted in the end, validate that its len-1
-	if err != nil {
-		return nil, err
-	}
 	// Case 1
 
 	if index <= 0 {

@@ -11,9 +11,13 @@ import (
 	mt "github.com/txaty/go-merkletree"
 )
 
+// nl = newest landmark
 // Verify is used by the client to verify sent landmark
 func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 	block, err := tree.ByteToDataBlock(hash)
+	if err != nil {
+		return false, fmt.Errorf("creating data block, %v", err)
+	}
 	// Verify CombinedProof
 	if m == nil || m.Proof == nil || m.Proof.CombinedProof == nil || sl == nil {
 		return false, fmt.Errorf("bad Response")
@@ -23,18 +27,24 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 	// We expect inclusion in issue-proof & exclusion (inclusion but for empty hash) in revoke proof & RevProof = Nil
 	case Good:
 		{
+			if m.Proof.CombinedProof.IssueProof == nil || m.Proof.CombinedProof.RevProof == nil {
+				return false, fmt.Errorf("bad proof for status=good, missing proofs")
+			}
 			verify, err := mt.Verify(block, m.Proof.CombinedProof.IssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 			if err != nil {
 				return false, fmt.Errorf("verifying issue-proof, %v", err)
 			}
 			notRevoked := smt.VerifyProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, []byte{}, sha256.New())
 			if !verify || !notRevoked || nonIssueProof != nil {
-				return false, fmt.Errorf("bad proof for good, expected, true, true, got: %t, %t  ", verify, notRevoked)
+				return false, fmt.Errorf("bad proof for status=good, expected, true, true, got: %t, %t  ", verify, notRevoked)
 			}
 		}
 		// We expect inclusion in issue-proof & inclusion in revoke proof
 	case Revoked:
 		{
+			if m.Proof.CombinedProof.IssueProof == nil || m.Proof.CombinedProof.RevProof == nil {
+				return false, fmt.Errorf("bad proof for status=revoked, missing proofs")
+			}
 			verify, err := mt.Verify(block, m.Proof.CombinedProof.IssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 			if err != nil {
 				return false, fmt.Errorf("verifying issue-proof, %v", err)
@@ -47,7 +57,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 	case Unknown:
 		{ // If not issued we expect a proof verifying the exclusion. TODO: add date validation? We expect the landmark to "cover" the certs date
 			if m.Proof.CombinedProof.IssueProof != nil {
-				return false, fmt.Errorf("bad proof for Unknown, expected issueProof to be nil")
+				return false, fmt.Errorf("bad proof for status=Unknown, expected issueProof to be nil")
 			}
 			if nonIssueProof == nil {
 				return false, fmt.Errorf("expected nonIssueProof to be non-nil")
@@ -58,7 +68,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 			}
 
 			if !verifyExclusionNonIssued {
-				return false, fmt.Errorf("bad proof for Unknown, exclusion verification failed")
+				return false, fmt.Errorf("bad proof for status=Unknown, exclusion verification failed")
 			}
 		}
 	default:
@@ -66,13 +76,13 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 			return false, fmt.Errorf("bad status, %d", m.Status)
 		}
 	}
-	// TODO: this doesnt work if they are of different "epochs", which is the common case
-	// Only works if they are from the same epoch
-	//Calculate the hash from issue + rev:
+	// Verify inclusion for the issue epoch. The revocation proof is from the newest epoch,
+	// but the log proof is to the issue epoch combined root.
+
+	// Calculate the hash from issue + rev for the issue epoch:
 	hasher := sha256.New()
-	hasher.Write(m.Proof.CombinedProof.IssueRoot) // + "the current periods rev-hash"
-	hasher.Write(m.Proof.CombinedProof.RevRoot)   // + "latest landmarks issue-hash"
-	// Would have to perform two log-verifications here
+	hasher.Write(m.Proof.CombinedProof.IssueRoot)
+	hasher.Write(m.Proof.CombinedProof.IssueEpochRev)
 	hash = hasher.Sum(nil)
 	// use the hash to verify its inclusion in the Log:
 	err = proof.VerifyInclusion(
@@ -87,5 +97,24 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 		return false, fmt.Errorf("log inclusion proof failed: %w", err)
 	}
 
+	// Verify the rev-side against the log
+
+	if m.Status != Unknown {
+		nHasher := sha256.New()
+		nHasher.Write(m.Proof.CombinedProof.RevEpochIssue)
+		nHasher.Write(m.Proof.CombinedProof.RevRoot)
+		nHash := nHasher.Sum(nil)
+		err = proof.VerifyInclusion(
+			rfc6962.DefaultHasher,
+			m.Proof.NewestLogIndex,
+			sl.LogSize,
+			nHash,
+			m.Proof.NewestLogProof,
+			sl.LogRoot,
+		)
+		if err != nil {
+			return false, fmt.Errorf("newest landmark log inclusion proof failed, %v", err)
+		}
+	}
 	return true, nil
 }

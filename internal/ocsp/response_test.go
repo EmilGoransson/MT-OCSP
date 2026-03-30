@@ -21,7 +21,7 @@ func TestNewMerkleResponse(t *testing.T) {
 	lm1, _ := NewLandmark(log, cTree)
 
 	t.Run("returns response for issued util", func(t *testing.T) {
-		resp, err := NewResponse(certs[0], lm1)
+		resp, err := NewResponse(certs[0], lm1, lm1)
 		if err != nil {
 			t.Fatalf("NewResponse() returned error: %v", err)
 		}
@@ -37,7 +37,7 @@ func TestNewMerkleResponse(t *testing.T) {
 	})
 
 	t.Run("response status is Good for issued non-revoked util", func(t *testing.T) {
-		resp, err := NewResponse(certs[1], lm1)
+		resp, err := NewResponse(certs[1], lm1, lm1)
 		if err != nil {
 			t.Fatalf("NewResponse() returned error: %v", err)
 		}
@@ -51,7 +51,7 @@ func TestNewMerkleResponse(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to revoke util: %v", err)
 		}
-		resp, err := NewResponse(certs[2], lm1)
+		resp, err := NewResponse(certs[2], lm1, lm1)
 		if err != nil {
 			t.Fatalf("NewResponse() returned error: %v", err)
 		}
@@ -64,7 +64,7 @@ func TestNewMerkleResponse(t *testing.T) {
 		//unknownCert, _ := util.NewRandomCertificate(key, false)
 		//unknownCert = util.HashCert(unknownCert)
 		unknownCert := []byte("hibbjhfa")
-		resp, err := NewResponse(unknownCert, lm1)
+		resp, err := NewResponse(unknownCert, lm1, lm1)
 		if err != nil {
 			t.Fatalf("NewResponse() returned error: %v", err)
 		}
@@ -88,7 +88,7 @@ func TestGetStatus(t *testing.T) {
 	}
 
 	t.Run("Good - issued and not revoked", func(t *testing.T) {
-		status, err := getStatus(tree, certs[0])
+		status, err := getStatus(tree, tree, certs[0])
 		if err != nil {
 			t.Fatalf("getStatus() returned error: %v", err)
 		}
@@ -102,7 +102,7 @@ func TestGetStatus(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to revoke util: %v", err)
 		}
-		status, err := getStatus(tree, certs[1])
+		status, err := getStatus(tree, tree, certs[1])
 		if err != nil {
 			t.Fatalf("getStatus() returned error: %v", err)
 		}
@@ -112,7 +112,7 @@ func TestGetStatus(t *testing.T) {
 	})
 
 	t.Run("Unknown - never issued", func(t *testing.T) {
-		status, err := getStatus(tree, []byte("not-in-tree"))
+		status, err := getStatus(tree, tree, []byte("not-in-tree"))
 		if err != nil {
 			t.Fatalf("getStatus() returned error: %v", err)
 		}
@@ -122,7 +122,7 @@ func TestGetStatus(t *testing.T) {
 	})
 
 	t.Run("status changes after revocation", func(t *testing.T) {
-		statusBefore, err := getStatus(tree, certs[2])
+		statusBefore, err := getStatus(tree, tree, certs[2])
 		if err != nil {
 			t.Fatalf("getStatus() before revocation returned error: %v", err)
 		}
@@ -135,7 +135,7 @@ func TestGetStatus(t *testing.T) {
 			t.Fatalf("Failed to revoke util: %v", err)
 		}
 
-		statusAfter, err := getStatus(tree, certs[2])
+		statusAfter, err := getStatus(tree, tree, certs[2])
 		if err != nil {
 			t.Fatalf("getStatus() after revocation returned error: %v", err)
 		}
@@ -151,7 +151,7 @@ func TestGetStatus(t *testing.T) {
 			t.Fatalf("Failed to add ghost revocation: %v", err)
 		}
 		// isIssued check comes first in getStatus, so this should return Unknown
-		status, err := getStatus(tree, ghostCert)
+		status, err := getStatus(tree, tree, ghostCert)
 		if err != nil {
 			t.Fatalf("getStatus() returned error: %v", err)
 		}

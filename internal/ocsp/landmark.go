@@ -32,9 +32,11 @@ type SignedLandmark struct {
 }
 
 type LandmarkProof struct {
-	LogProof      [][]byte
-	LogIndex      uint64
-	CombinedProof *CombinedProof
+	LogProof       [][]byte
+	LogIndex       uint64
+	NewestLogProof [][]byte
+	NewestLogIndex uint64 // Index of the newest landmark in the log
+	CombinedProof  *CombinedProof
 }
 
 type CombinedProof struct {
@@ -110,12 +112,15 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 // lNewest contains the rev-combined-tree always
 
 // newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
-func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
+func (l *Landmark) NewLandmarkProof(hash []byte, lNewest *Landmark) (*LandmarkProof, error) {
 	// Generate combinedTree Proof
-	if l.CTree.RevSMT.SparseMerkleTree == nil {
-		return nil, fmt.Errorf("empty revocation, froze before generating proof")
+	if l == nil {
+		return nil, fmt.Errorf("landmark is nil")
 	}
-	status, err := getStatus(l.CTree, hash)
+	if lNewest == nil {
+		lNewest = l
+	}
+	status, err := getStatus(l.CTree, lNewest.CTree, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -139,6 +144,9 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 	} else {
 		// IssueProof needs the rev-root of its "own" combined tree
 		// RevProof needs the issue-root of its "own" combined tree
+		if lNewest.CTree == nil || lNewest.CTree.RevSMT == nil || lNewest.CTree.RevSMT.SparseMerkleTree == nil {
+			return nil, fmt.Errorf("revocation tree unavailable for latest epoch")
+		}
 
 		issuedProof, err = l.CTree.NewMembershipProofIssued(hash)
 		if err != nil {
@@ -156,7 +164,13 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 		}
 
 		if err != nil {
-			return &LandmarkProof{nil, 0, nil}, err
+			return &LandmarkProof{
+				LogProof:       nil,
+				LogIndex:       0,
+				NewestLogProof: nil,
+				NewestLogIndex: 0,
+				CombinedProof:  nil,
+			}, err
 		}
 	}
 
@@ -167,9 +181,22 @@ func (l *Landmark) NewLandmarkProof(hash []byte) (*LandmarkProof, error) {
 		return nil, err
 	}
 
+	// Generate a log-inclusion proof for the newest landmark so that Verify can verify it against the log .
+	newestLogProof := logProof
+	newestLogIndex := l.LogIndex
+	if lNewest.LogIndex != l.LogIndex {
+		newestLogProof, err = lNewest.Log.NewProof(lNewest.LogIndex)
+		if err != nil {
+			return nil, fmt.Errorf("generating newest log proof, %v", err)
+		}
+		newestLogIndex = lNewest.LogIndex
+	}
+
 	return &LandmarkProof{
-		LogProof:      logProof,
-		LogIndex:      l.LogIndex,
-		CombinedProof: cProof,
+		LogProof:       logProof,
+		LogIndex:       l.LogIndex,
+		NewestLogProof: newestLogProof,
+		NewestLogIndex: newestLogIndex,
+		CombinedProof:  cProof,
 	}, nil
 }

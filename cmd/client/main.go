@@ -26,11 +26,14 @@ func main() {
 func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
 
 	response, err := http.Get("http://localhost:8080/landmark")
+	if err != nil {
+		return nil, fmt.Errorf("getting response, %v", err)
+	}
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status not 200")
 	}
 	if err != nil {
-		return nil, fmt.Errorf("getting response, %v")
+		return nil, fmt.Errorf("getting response%v", err)
 	}
 	lm := ocsp.SignedLandmark{}
 	resBody, err := io.ReadAll(response.Body)

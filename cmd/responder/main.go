@@ -26,7 +26,6 @@ type server struct {
 
 func main() {
 	port := ":8080"
-
 	ch := make(chan error)
 	done := make(chan bool)
 	c, _ := responder.NewController()
@@ -165,7 +164,6 @@ func (s *server) getSignedLandmark(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-
 }
 func testAddCert(w http.ResponseWriter, r *http.Request) {
 
@@ -236,8 +234,8 @@ func (s *server) getLandmarkProof(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-
-	proof, err := s.c.CurrentLandmark.NewLandmarkProof(cert)
+	// TODO: make it so that the controller issues the proof (server should always call the controller)
+	proof, err := s.c.CurrentLandmark.NewLandmarkProof(cert, s.c.CurrentLandmark)
 
 	if err != nil {
 		http.Error(w, "error creating landmark proof", http.StatusInternalServerError)
@@ -246,10 +244,6 @@ func (s *server) getLandmarkProof(w http.ResponseWriter, r *http.Request) {
 	log.Println(proof)
 
 	w.WriteHeader(http.StatusCreated)
-
-	if err != nil {
-		return
-	}
 }
 func (s *server) NewResponse(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -275,7 +269,7 @@ func (s *server) NewResponse(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatalf("finding the landmark %v", err)
 	}
-	res, err := ocsp.NewResponse(bodyStruct.Certificate, lm)
+	res, err := ocsp.NewResponse(bodyStruct.Certificate, lm, s.c.CurrentLandmark)
 	fmt.Println(res)
 	retBody, err := json.Marshal(res)
 	if err != nil {

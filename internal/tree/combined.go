@@ -31,11 +31,7 @@ func NewCombined(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*C
 		return nil, fmt.Errorf("creating new sorted, %v", err)
 	}
 	// If there is a previous SMT, we want to build on top of that
-	if rTree != nil {
-		newSMT = rTree
-	} else {
-		newSMT = NewSparse()
-	}
+	newSMT = rTree
 	tree := &Combined{
 		Root:     nil,
 		IssuedMT: merkle,

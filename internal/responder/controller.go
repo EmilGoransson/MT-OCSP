@@ -119,6 +119,10 @@ func (c *Controller) updateController() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
+	if c.CurrentLandmark != nil {
+		c.CurrentLandmark.CTree.RevSMT = c.CurrentLandmark.CTree.RevSMT.Freeze()
+	}
+
 	newCombined, err := tree.NewCombined(issued, revoked, c.Revocation)
 	if err != nil {
 		return err
@@ -127,6 +131,7 @@ func (c *Controller) updateController() error {
 	if err != nil {
 		return err
 	}
+
 	c.Landmarks = append(c.Landmarks, newLandmark)
 	c.CurrentLandmark = newLandmark
 	return nil
@@ -164,4 +169,9 @@ func (c *Controller) GetLandmarkFromBytes(h []byte) (*ocsp.Landmark, error) {
 	}
 	// Unknown status
 	return nil, nil
+}
+
+// Consider moving proof here so that responder logic moves via controller always responder -> Controller -> proof or w/e
+func (c *Controller) NewProof() {
+
 }
