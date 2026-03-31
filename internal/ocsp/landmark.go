@@ -74,7 +74,7 @@ func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
 		Log:      l,
 		LogIndex: index,
 		CTree:    c,
-		Date:     time.Now(),
+		Date:     date,
 	}, nil
 }
 
