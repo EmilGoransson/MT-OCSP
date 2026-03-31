@@ -8,29 +8,36 @@ import (
 	"log"
 	"math/big"
 	"merkle-ocsp/internal/ocsp"
-	"merkle-ocsp/internal/util"
 	"net/http"
 	"time"
 )
 
 func main() {
-	key, _ := util.NewKeyPair(2048)
-	// cert := []byte("issued-id-001")
-	cert2, err := util.NewRandomCertificate(key, false)
+	//key, _ := util.NewKeyPair(2048)
+	// (Fake Cert)
+	// Random big-int (serial)
+	serial := big.NewInt(1111)
+	serialBytes := serial.Bytes()
+	date := time.Now()
+	//cert2, err := util.NewRandomCertificate(key, false)
 	// wait for cert to be "valid" time-wise (depends on frequency in responder)
 	time.Sleep(20 * time.Second)
 	lm, err := TestGetSignedLandmark()
+	// Should Validate that the data matches the hash
 	if err != nil {
 		panic(err)
 	}
-	serial, err := util.ExtractSerial(cert2)
-	fmt.Println(serial)
-	date, err := util.ExtractDate(cert2)
-	fmt.Println(date)
-	if err != nil {
-		panic(err)
-	}
-	r := TestNewResponse(serial.Bytes(), serial, date)
+	/*
+		 serial, err := util.ExtractSerial(cert2)
+
+		date, err := util.ExtractDate(cert2)
+		if err != nil {
+			panic(err)
+		} */
+	// TODO: Remove the serialBytes, only serial is needed
+	r := TestNewResponse(serialBytes, serial, date)
+	// To check bad timestamp
+	//r.Proof.CombinedProof.IssueDate = time.Now()
 	verify, err := ocsp.Verify(r, lm, serial.Bytes(), date)
 	fmt.Printf("Validating returned proof for status=%s: Proof valid:  %t\n", ocsp.Status(r.Status), verify)
 	fmt.Println(verify)

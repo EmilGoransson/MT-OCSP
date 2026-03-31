@@ -1,8 +1,26 @@
-- 
-To consider: 
-- If status= good/revoked should use date-based proofing as well
-- If the date should be commited to the log (can adversary "fake" the date?)
-- Alternative to date, but is safer: you would need to create an exclusion-proof for each issued epoch. 
+## Merkle OCSP
+
+Each leaf contains (Serial | IssueDate)
+
+
+Status =Good, =Revoked:
+- Uses Hash-chaining
+
+Status = Unknown
+- Uses Hash-chaining + Date-based proof.
+
+
+A certificate can be represented as:
+```
+serial := big.NewInt(1111)
+serialBytes := serial.Bytes()
+date := time.Now()
+```
+
+A client can verify the validity of the OCSP-proof via:
+```
+ocsp.Verify(serverProof, signedLandmark, serialBytes, date)
+```
 
 What implements what / Flow
 

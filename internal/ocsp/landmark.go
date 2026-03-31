@@ -4,6 +4,7 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
 	"merkle-ocsp/internal/tree"
@@ -28,6 +29,7 @@ type SignedLandmark struct {
 	SignedHashData []byte
 	LogRoot        []byte
 	LogSize        uint64
+	Frequency      time.Duration
 	Date           time.Time
 }
 
@@ -43,6 +45,7 @@ type CombinedProof struct {
 	IssueRoot     []byte // Placeholder / temp fix
 	RevRoot       []byte // Placeholder / temp fix
 	IssueProof    *merkletree.Proof
+	IssueDate     time.Time
 	IssueEpochRev []byte
 	NonIssueProof *tree.ExclusionProofSorted
 	RevProof      *smt.SparseMerkleProof
@@ -53,7 +56,16 @@ type CombinedProof struct {
 // NewLandmark commits a combinedTree to the Log.
 func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
 	// Commit curTree and data to the Log (can include Timestamp if needed)
-	err := l.AppendToLog(c.Root)
+	date := c.Date
+
+	bDate, err := date.MarshalBinary()
+	if err != nil {
+		return nil, fmt.Errorf("marshaling date, err: %v", err)
+	}
+	h := sha256.New()
+	h.Write(c.Root)
+	h.Write(bDate)
+	err = l.AppendToLog(h.Sum(nil))
 	if err != nil {
 		return nil, fmt.Errorf("adding combinedTree to Log, %v", err)
 	}
@@ -67,7 +79,7 @@ func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
 }
 
 // NewSignedHead hashes together data and signs the hash
-func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandmark, error) {
+func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash, f time.Duration) (*SignedLandmark, error) {
 	// Signs the hash of (RootHash + TreeSize + Date
 	if l == nil {
 		return nil, fmt.Errorf("landmark is nil")
@@ -82,12 +94,18 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 	size := l.Log.Size()
 	binary.BigEndian.PutUint64(treeSizeHash, size)
 	timeHash, err := l.Date.MarshalBinary()
+	// Convert freq to bytes
+	freqBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(freqBytes, uint64(f))
 	if err != nil {
 		return nil, fmt.Errorf("marshaling time, %v", err)
 	}
+
+	// Write bytes and hash
 	hasher.Write(rootHash)
 	hasher.Write(treeSizeHash)
 	hasher.Write(timeHash)
+	hasher.Write(freqBytes)
 	hash := hasher.Sum(nil)
 	signedHash, err := k.Sign(rand.Reader, hash, h)
 	if err != nil {
@@ -102,6 +120,7 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash) (*SignedLandm
 		LogRoot:        rootHash,
 		LogSize:        size,
 		Date:           l.Date,
+		Frequency:      f,
 	}, nil
 
 }
@@ -138,6 +157,7 @@ func (l *Landmark) NewLandmarkProof(hash []byte, lNewest *Landmark) (*LandmarkPr
 		cProof = &CombinedProof{
 			IssueRoot:     l.CTree.IssuedMT.Root,
 			IssueEpochRev: l.CTree.RevSMT.Root(),
+			IssueDate:     l.CTree.Date,
 			RevRoot:       lNewest.CTree.RevSMT.Root(),
 			RevEpochIssue: lNewest.CTree.IssuedMT.Root,
 			IssueProof:    nil,
@@ -159,6 +179,7 @@ func (l *Landmark) NewLandmarkProof(hash []byte, lNewest *Landmark) (*LandmarkPr
 		cProof = &CombinedProof{
 			IssueRoot:     l.CTree.IssuedMT.Root,
 			IssueEpochRev: l.CTree.RevSMT.Root(),
+			IssueDate:     l.CTree.Date,
 			RevRoot:       lNewest.CTree.RevSMT.Root(),
 			RevEpochIssue: lNewest.CTree.IssuedMT.Root,
 			IssueProof:    issuedProof,

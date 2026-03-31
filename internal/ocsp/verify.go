@@ -65,6 +65,14 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 			if nonIssueProof == nil {
 				return false, fmt.Errorf("expected nonIssueProof to be non-nil")
 			}
+			// Verify that the date matches the freq period
+
+			epochDate := m.Proof.CombinedProof.IssueDate
+			if date.Before(epochDate.Add(-sl.Frequency)) || epochDate.After(epochDate) {
+				return false, fmt.Errorf("time not matching: response timestamp %s not in period  [%s, %s]",
+					date, epochDate.Add(-sl.Frequency), epochDate)
+			}
+
 			verifyExclusionNonIssued, err := tree.ValidateExclusion(hash, nonIssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 			if err != nil {
 				return false, fmt.Errorf("verifying nonIssue proof, %v", err)
@@ -86,13 +94,23 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 	hasher := sha256.New()
 	hasher.Write(m.Proof.CombinedProof.IssueRoot)
 	hasher.Write(m.Proof.CombinedProof.IssueEpochRev)
-	hash = hasher.Sum(nil)
+	combinedRoot := hasher.Sum(nil)
+
+	// Add the date from the proof
+	dBytes, err := m.Proof.CombinedProof.IssueDate.MarshalBinary()
+	if err != nil {
+		return false, fmt.Errorf("marshalling date, %v", err)
+	}
+	h := sha256.New()
+	h.Write(combinedRoot)
+	h.Write(dBytes)
+	lHash := h.Sum(nil)
 	// use the hash to verify its inclusion in the Log:
 	err = proof.VerifyInclusion(
 		rfc6962.DefaultHasher,
 		m.Proof.LogIndex,
 		sl.LogSize,
-		hash,
+		lHash,
 		m.Proof.LogProof,
 		sl.LogRoot,
 	)
@@ -103,10 +121,18 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 	// Verify the rev-side against the log
 
 	if m.Status != Unknown {
+		dBytes, err := sl.Date.MarshalBinary()
+
 		nHasher := sha256.New()
 		nHasher.Write(m.Proof.CombinedProof.RevEpochIssue)
 		nHasher.Write(m.Proof.CombinedProof.RevRoot)
-		nHash := nHasher.Sum(nil)
+		nH := nHasher.Sum(nil)
+
+		dHasher := sha256.New()
+		dHasher.Write(nH)
+		dHasher.Write(dBytes)
+		nHash := dHasher.Sum(nil)
+
 		err = proof.VerifyInclusion(
 			rfc6962.DefaultHasher,
 			m.Proof.NewestLogIndex,

@@ -154,7 +154,7 @@ func (s *server) getSignedLandmark(w http.ResponseWriter, r *http.Request) {
 	if s.signed != nil {
 		log.Println("signed-lm: ", s.signed)
 	}
-	signed, err := s.c.CurrentLandmark.NewSignedHead(s.pKey, crypto.SHA256)
+	signed, err := s.c.CurrentLandmark.NewSignedHead(s.pKey, crypto.SHA256, s.c.Frequency)
 	if err != nil {
 		http.Error(w, "no landmark created", http.StatusInternalServerError)
 		return
@@ -167,10 +167,16 @@ func (s *server) getSignedLandmark(w http.ResponseWriter, r *http.Request) {
 	}
 }
 func testAddCert(w http.ResponseWriter, r *http.Request) {
+	serial := big.NewInt(1111)
+	serialBytes := serial.Bytes()
 
-	cert := []byte("issued-id-001")
-	cert2 := []byte("revoked-id-002")
-	certs := [][]byte{cert, cert2}
+	serial2 := big.NewInt(2222)
+	serialBytes2 := serial2.Bytes()
+	/*
+		cert := append([]byte("issued-id-001"))
+		cert2 := []byte("revoked-id-002")
+	*/
+	certs := [][]byte{serialBytes, serialBytes2}
 
 	body := struct {
 		Certificates [][]byte
@@ -192,12 +198,13 @@ func testAddCert(w http.ResponseWriter, r *http.Request) {
 
 func testRevokeCert(w http.ResponseWriter, r *http.Request) {
 
-	cert := []byte("revoked-id-002")
+	serial := big.NewInt(1111)
+	serialBytes := serial.Bytes()
 
 	body := struct {
 		Certificates [][]byte `json:"certificates"`
 	}{
-		Certificates: [][]byte{cert},
+		Certificates: [][]byte{serialBytes},
 	}
 	out, err := json.Marshal(body)
 	if err != nil {
