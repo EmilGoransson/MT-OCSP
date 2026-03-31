@@ -1,9 +1,8 @@
-To fix: 
-Unknown case. Its currently skipped over in NewResponse because new response takes a landmark (which is fetched from the hash), but since the cert isnt a part of the issue tree,
-landmark is passed as nil. 
-Perhaps- make it date-based?
-
-Todo: Fix unknown status
+- 
+To consider: 
+- If status= good/revoked should use date-based proofing as well
+- If the date should be commited to the log (can adversary "fake" the date?)
+- Alternative to date, but is safer: you would need to create an exclusion-proof for each issued epoch. 
 
 What implements what / Flow
 
@@ -24,6 +23,8 @@ What implements what / Flow
 
 
 ```
+Add: Client sends Serial + Issue-date
+
 Basic Flow
 - Client sends cert 
 - Client gets status + landmarkProof.

@@ -28,6 +28,28 @@ func HashList(list [][]byte) [][]byte {
 	return list
 }
 
+func ExtractSerial(b []byte) (*big.Int, error) {
+	c, err := x509.ParseCertificates(b)
+	if err != nil {
+		return nil, fmt.Errorf("converting byte to cert")
+	}
+	if len(c) <= 0 {
+		return nil, fmt.Errorf("len 0 or shorter")
+	}
+	return c[0].SerialNumber, nil
+
+}
+func ExtractDate(b []byte) (time.Time, error) {
+	c, err := x509.ParseCertificates(b)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("converting byte to cert")
+	}
+	if len(c) <= 0 {
+		return time.Time{}, fmt.Errorf("len 0 or shorter")
+	}
+	return c[0].NotBefore, nil
+}
+
 func NewKeyPair(bits int) (*rsa.PrivateKey, error) {
 	return rsa.GenerateKey(rand.Reader, bits)
 }
@@ -47,6 +69,7 @@ func NewRootCertificateAndKey(keyLength int) (*CertObject, error) {
 }
 func NewRandomCertificate(pkey *rsa.PrivateKey, isCa bool) ([]byte, error) {
 	// Specify algorithm
+	time := time.Now()
 	r, _ := rand.Int(rand.Reader, big.NewInt(100))
 	var ca = &x509.Certificate{
 		SerialNumber: r,
@@ -58,8 +81,8 @@ func NewRandomCertificate(pkey *rsa.PrivateKey, isCa bool) ([]byte, error) {
 			StreetAddress: []string{randomString(10)},
 			PostalCode:    []string{randomString(5)},
 		},
-		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(10, 0, 0),
+		NotBefore:             time,
+		NotAfter:              time.AddDate(0, 0, 200),
 		IsCA:                  isCa,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,

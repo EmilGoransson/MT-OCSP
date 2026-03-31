@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/big"
 	"merkle-ocsp/internal/ocsp"
 	"merkle-ocsp/internal/responder"
 	"merkle-ocsp/internal/util"
@@ -29,7 +30,7 @@ func main() {
 	ch := make(chan error)
 	done := make(chan bool)
 	c, _ := responder.NewController()
-	c.SetFrequency(20 * time.Second)
+	c.SetFrequency(15 * time.Second)
 	key, _ := util.NewKeyPair(2048)
 	s := &server{
 		pKey:    key,
@@ -255,19 +256,40 @@ func (s *server) NewResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	bodyStruct := struct {
-		Certificate []byte `json:"certificates"`
+		Certificate []byte    `json:"certificates"`
+		Serial      *big.Int  `json:"serial"`
+		Date        time.Time `json:"issue-date"`
 	}{}
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "no data", http.StatusBadRequest)
+		return
 	}
 	err = json.Unmarshal(body, &bodyStruct)
 	if err != nil {
 		panic(err)
 	}
+	// If the cert has not been added to a landmark yet
+	if s.c.CurrentLandmark.Date.Before(bodyStruct.Date) {
+		msg := fmt.Sprintf("cert not added to log yet. Last landmark: %s, Cert issuance: %s",
+			s.c.CurrentLandmark.Date, bodyStruct.Date)
+
+		http.Error(w, msg, http.StatusNotFound)
+		return
+	}
+
 	lm, err := s.c.GetLandmarkFromBytes(bodyStruct.Certificate)
 	if err != nil {
 		log.Fatalf("finding the landmark %v", err)
+	}
+
+	// If lm = nil, we try getting it from date (unknown status)
+	if lm == nil {
+		lm, err = s.c.GetLandmarkFromDate(bodyStruct.Date)
+		if err != nil {
+			log.Fatalf("finding lm using date")
+			return
+		}
 	}
 	res, err := ocsp.NewResponse(bodyStruct.Certificate, lm, s.c.CurrentLandmark)
 	fmt.Println(res)

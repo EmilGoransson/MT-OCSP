@@ -139,15 +139,19 @@ func (c *Controller) updateController() error {
 
 // GetLandmarkFromDate Finds a Landmark that covered the date.
 // Idea: Each cert is issued during some time, placing them within one epoch.
-func (c *Controller) GetLandmarkFromDate(h []byte, date time.Time) (*ocsp.Landmark, error) {
+// Validate that it works
+func (c *Controller) GetLandmarkFromDate(date time.Time) (*ocsp.Landmark, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	s := slices.IndexFunc(c.Landmarks, func(l *ocsp.Landmark) bool {
-		isBefore := l.Date.Add(-c.Frequency).Before(date)
-		return l.Date.After(date) && isBefore
+		intervalStart := l.Date.Add(-c.Frequency)
+		afterOrAtStart := !date.Before(intervalStart)
+		beforeEnd := date.Before(l.Date)
+
+		return afterOrAtStart && beforeEnd
 	})
-	// Unknown status
+
 	if s == -1 {
 		return nil, nil
 	}
@@ -167,7 +171,7 @@ func (c *Controller) GetLandmarkFromBytes(h []byte) (*ocsp.Landmark, error) {
 			return lm, nil
 		}
 	}
-	// Unknown status
+	// Unknown status, Maybe, we here return based on date?
 	return nil, nil
 }
 

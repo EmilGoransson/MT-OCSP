@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"merkle-ocsp/internal/tree"
+	"time"
 
 	"github.com/celestiaorg/smt"
 	"github.com/transparency-dev/merkle/proof"
@@ -13,7 +14,7 @@ import (
 
 // nl = newest landmark
 // Verify is used by the client to verify sent landmark
-func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
+func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool, error) {
 	block, err := tree.ByteToDataBlock(hash)
 	if err != nil {
 		return false, fmt.Errorf("creating data block, %v", err)
@@ -56,6 +57,8 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 		}
 	case Unknown:
 		{ // If not issued we expect a proof verifying the exclusion. TODO: add date validation? We expect the landmark to "cover" the certs date
+			// We expect the date to be "correct"
+
 			if m.Proof.CombinedProof.IssueProof != nil {
 				return false, fmt.Errorf("bad proof for status=Unknown, expected issueProof to be nil")
 			}

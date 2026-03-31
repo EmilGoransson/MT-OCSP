@@ -6,6 +6,8 @@ import (
 	"time"
 )
 
+type Status int
+
 const (
 	Good = iota
 	Revoked
@@ -18,8 +20,6 @@ type Response struct {
 	Proof     *LandmarkProof
 }
 
-// What is included in the response?
-// TODO: Handle unknown case- is currnetly skipped. Might need its own function
 func NewResponse(certHash []byte, l *Landmark, lNewest *Landmark) (*Response, error) {
 	var status int8
 	var err error
@@ -27,22 +27,21 @@ func NewResponse(certHash []byte, l *Landmark, lNewest *Landmark) (*Response, er
 	if lNewest == nil {
 		lNewest = l
 	}
-	//TODO: handle unknown status, add "date-proof" / exclusion proof
 	if l == nil {
-		status = Unknown
-	} else {
-		status, err = getStatus(l.CTree, lNewest.CTree, certHash)
-		if err != nil {
-			return nil, err
-		}
-		p, err = l.NewLandmarkProof(certHash, lNewest)
-		if err != nil {
-			return nil, fmt.Errorf("generating proof for util, %v", err)
-		}
+		return nil, fmt.Errorf("landmark is nil, date and cert not found")
+	}
+	status, err = getStatus(l.CTree, lNewest.CTree, certHash)
+	if err != nil {
+		return nil, err
+	}
+	p, err = l.NewLandmarkProof(certHash, lNewest)
+	if err != nil {
+		return nil, fmt.Errorf("generating proof for util, %v", err)
 	}
 	return &Response{status, time.Now(), p}, nil
 }
 
+// TODO: Should it return unknown if issueTree = nil? With date-based finding, it should simply check the tree for the hash
 // getStatus finds the status of a certificate from an issue-tree and the latest rev-tree,
 func getStatus(issueTree *tree.Combined, newestTree *tree.Combined, hash []byte) (int8, error) {
 	if issueTree == nil {
@@ -63,4 +62,16 @@ func getStatus(issueTree *tree.Combined, newestTree *tree.Combined, hash []byte)
 		return Good, nil
 	}
 	return Revoked, nil
+}
+func (s Status) String() string {
+	switch s {
+	case Good:
+		return "Good"
+	case Revoked:
+		return "Revoked"
+	case Unknown:
+		return "Unknown"
+	default:
+		return "bad status"
+	}
 }

@@ -120,6 +120,7 @@ func (l *Landmark) NewLandmarkProof(hash []byte, lNewest *Landmark) (*LandmarkPr
 	if lNewest == nil {
 		lNewest = l
 	}
+	//Fetches status a 2nd time, refactor?
 	status, err := getStatus(l.CTree, lNewest.CTree, hash)
 	if err != nil {
 		return nil, err
@@ -130,15 +131,17 @@ func (l *Landmark) NewLandmarkProof(hash []byte, lNewest *Landmark) (*LandmarkPr
 
 	// Make into its own type of proof maybe since you need NewNonMembershipProof for EVERY tree in EVERY epoch, Only needs to be one if its Date based
 	if status == Unknown {
-		issuedProof, err := l.CTree.NewNonMembershipProof(hash)
+		proof, err := l.CTree.NewNonMembershipProof(hash)
 		if err != nil {
 			return nil, fmt.Errorf("creating newNonMembership proof %v, ", err)
 		}
 		cProof = &CombinedProof{
 			IssueRoot:     l.CTree.IssuedMT.Root,
-			RevRoot:       l.CTree.RevSMT.Root(),
+			IssueEpochRev: l.CTree.RevSMT.Root(),
+			RevRoot:       lNewest.CTree.RevSMT.Root(),
+			RevEpochIssue: lNewest.CTree.IssuedMT.Root,
 			IssueProof:    nil,
-			NonIssueProof: issuedProof,
+			NonIssueProof: proof,
 			RevProof:      nil,
 		}
 	} else {
