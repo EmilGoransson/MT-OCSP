@@ -5,22 +5,46 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"math/big"
 	"merkle-ocsp/internal/ocsp"
 	"net/http"
+	"time"
 )
 
 func main() {
-	cert := []byte("revoked-id-002")
+	//key, _ := util.NewKeyPair(2048)
+	// (Fake Cert)
+	// Random big-int (serial)
+	serial := big.NewInt(1111)
+	serialBytes := serial.Bytes()
+	date := time.Now()
+	//cert2, err := util.NewRandomCertificate(key, false)
+	// wait for cert to be "valid" time-wise (depends on frequency in responder)
+	time.Sleep(20 * time.Second)
 	lm, err := TestGetSignedLandmark()
+	// Should Validate that the data matches the hash
 	if err != nil {
 		panic(err)
 	}
-	r := TestNewResponse(cert)
-	verify, err := ocsp.Verify(r, lm, cert)
-	if err != nil {
-		panic(err)
-	}
+	/*
+		 serial, err := util.ExtractSerial(cert2)
+
+		date, err := util.ExtractDate(cert2)
+		if err != nil {
+			panic(err)
+		} */
+	// TODO: Remove the serialBytes, only serial is needed
+	r := TestNewResponse(serialBytes, serial, date)
+	// To check bad timestamp
+	//r.Proof.CombinedProof.IssueDate = time.Now()
+	verify, err := ocsp.Verify(r, lm, serial.Bytes(), date)
+	fmt.Printf("Validating returned proof for status=%s: Proof valid:  %t\n", ocsp.Status(r.Status), verify)
 	fmt.Println(verify)
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
@@ -46,11 +70,15 @@ func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
 	return &lm, nil
 }
 
-func TestNewResponse(b []byte) *ocsp.Response {
+func TestNewResponse(b []byte, serial *big.Int, date time.Time) *ocsp.Response {
 	body := struct {
-		Certificate []byte `json:"certificates"`
+		Certificate []byte    `json:"certificates"`
+		Serial      *big.Int  `json:"serial"`
+		Date        time.Time `json:"issue-date"`
 	}{
 		Certificate: b,
+		Serial:      serial,
+		Date:        date,
 	}
 	out, err := json.Marshal(body)
 	if err != nil {
@@ -72,5 +100,7 @@ func TestNewResponse(b []byte) *ocsp.Response {
 		fmt.Println(lmBody)
 		return &lmBody
 	}
+	msg, _ := io.ReadAll(response.Body)
+	log.Fatalf("got status, %s, %s ", response.Status, msg)
 	return nil
 }

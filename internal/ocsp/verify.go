@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"merkle-ocsp/internal/tree"
+	"time"
 
 	"github.com/celestiaorg/smt"
 	"github.com/transparency-dev/merkle/proof"
@@ -13,7 +14,7 @@ import (
 
 // nl = newest landmark
 // Verify is used by the client to verify sent landmark
-func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
+func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool, error) {
 	block, err := tree.ByteToDataBlock(hash)
 	if err != nil {
 		return false, fmt.Errorf("creating data block, %v", err)
@@ -56,12 +57,22 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 		}
 	case Unknown:
 		{ // If not issued we expect a proof verifying the exclusion. TODO: add date validation? We expect the landmark to "cover" the certs date
+			// We expect the date to be "correct"
+
 			if m.Proof.CombinedProof.IssueProof != nil {
 				return false, fmt.Errorf("bad proof for status=Unknown, expected issueProof to be nil")
 			}
 			if nonIssueProof == nil {
 				return false, fmt.Errorf("expected nonIssueProof to be non-nil")
 			}
+			// Verify that the date matches the freq period
+
+			epochDate := m.Proof.CombinedProof.IssueDate
+			if date.Before(epochDate.Add(-sl.Frequency)) || epochDate.After(epochDate) {
+				return false, fmt.Errorf("time not matching: response timestamp %s not in period  [%s, %s]",
+					date, epochDate.Add(-sl.Frequency), epochDate)
+			}
+
 			verifyExclusionNonIssued, err := tree.ValidateExclusion(hash, nonIssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 			if err != nil {
 				return false, fmt.Errorf("verifying nonIssue proof, %v", err)
@@ -83,13 +94,23 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 	hasher := sha256.New()
 	hasher.Write(m.Proof.CombinedProof.IssueRoot)
 	hasher.Write(m.Proof.CombinedProof.IssueEpochRev)
-	hash = hasher.Sum(nil)
+	combinedRoot := hasher.Sum(nil)
+
+	// Add the date from the proof
+	dBytes, err := m.Proof.CombinedProof.IssueDate.MarshalBinary()
+	if err != nil {
+		return false, fmt.Errorf("marshalling date, %v", err)
+	}
+	h := sha256.New()
+	h.Write(combinedRoot)
+	h.Write(dBytes)
+	lHash := h.Sum(nil)
 	// use the hash to verify its inclusion in the Log:
 	err = proof.VerifyInclusion(
 		rfc6962.DefaultHasher,
 		m.Proof.LogIndex,
 		sl.LogSize,
-		hash,
+		lHash,
 		m.Proof.LogProof,
 		sl.LogRoot,
 	)
@@ -100,10 +121,18 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte) (bool, error) {
 	// Verify the rev-side against the log
 
 	if m.Status != Unknown {
+		dBytes, err := sl.Date.MarshalBinary()
+
 		nHasher := sha256.New()
 		nHasher.Write(m.Proof.CombinedProof.RevEpochIssue)
 		nHasher.Write(m.Proof.CombinedProof.RevRoot)
-		nHash := nHasher.Sum(nil)
+		nH := nHasher.Sum(nil)
+
+		dHasher := sha256.New()
+		dHasher.Write(nH)
+		dHasher.Write(dBytes)
+		nHash := dHasher.Sum(nil)
+
 		err = proof.VerifyInclusion(
 			rfc6962.DefaultHasher,
 			m.Proof.NewestLogIndex,

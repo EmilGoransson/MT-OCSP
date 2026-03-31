@@ -5,41 +5,31 @@ import (
 	"merkle-ocsp/internal/tree"
 	"merkle-ocsp/internal/util"
 	"testing"
+	"time"
 )
 
 // make into actual test
 func TestLandmarkLog(t *testing.T) {
-	// -- Build a landmark chain --
 
-	// ==========================================
-	// Step 0: Initial Setup
-	// ==========================================
-
-	// Generate a CA-keypair  (currently RSA, TBC)
 	ca, err := util.NewRootCertificateAndKey(2048)
 	if err != nil {
 		t.Fatalf("creating key or util: %v", err)
 	}
 	keyPair := ca.PKey
 
-	// Create an empty Log
 	log, err := tree.NewLog()
 	if err != nil {
 		t.Errorf("creating empty Log")
 	}
 
-	// Create a "global" revocation-tree that lives across epochs
 	activeRevokedTree := tree.NewSparse()
-
-	// ==========================================
-	// Step 1: Epoch 1 (Hour 0 to 1) (e.g)
-	// ==========================================
 
 	issuedCerts, err := util.NewListRandomCertificatesWithKey(5, keyPair)
 	issuedCerts = util.HashList(issuedCerts)
 	if err != nil {
 		t.Fatalf("creating certs using key: %v", err)
 	}
+
 	// Revoke some of them
 	var revokedCerts [][]byte
 	for i, b := range issuedCerts {
@@ -60,7 +50,7 @@ func TestLandmarkLog(t *testing.T) {
 		t.Fatalf("creating landmark")
 	}
 	// Sign the Log for distribution
-	signedlm1, err := lm1.NewSignedHead(keyPair, crypto.SHA256)
+	signedlm1, err := lm1.NewSignedHead(keyPair, crypto.SHA256, time.Hour)
 
 	if signedlm1 == nil {
 		t.Fatalf("signedlm1 should not be nil")
@@ -93,7 +83,7 @@ func TestLandmarkLog(t *testing.T) {
 	if err != nil {
 		t.Error("creating landmark 2")
 	}
-	_, err = lm2.NewSignedHead(keyPair, crypto.SHA256)
+	_, err = lm2.NewSignedHead(keyPair, crypto.SHA256, time.Hour)
 	if err != nil {
 		t.Errorf("signing head 2 %v", err)
 	}

@@ -1,9 +1,26 @@
-To fix: 
-Unknown case. Its currently skipped over in NewResponse because new response takes a landmark (which is fetched from the hash), but since the cert isnt a part of the issue tree,
-landmark is passed as nil. 
-Perhaps- make it date-based?
+## Merkle OCSP
 
-Todo: Fix unknown status
+Each leaf contains (Serial | IssueDate)
+
+
+Status =Good, =Revoked:
+- Uses Hash-chaining
+
+Status = Unknown
+- Uses Hash-chaining + Date-based proof.
+
+
+A certificate can be represented as:
+```
+serial := big.NewInt(1111)
+serialBytes := serial.Bytes()
+date := time.Now()
+```
+
+A client can verify the validity of the OCSP-proof via:
+```
+ocsp.Verify(serverProof, signedLandmark, serialBytes, date)
+```
 
 What implements what / Flow
 
@@ -24,6 +41,8 @@ What implements what / Flow
 
 
 ```
+Add: Client sends Serial + Issue-date
+
 Basic Flow
 - Client sends cert 
 - Client gets status + landmarkProof.

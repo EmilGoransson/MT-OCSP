@@ -36,6 +36,7 @@ func NewCombined(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*C
 		Root:     nil,
 		IssuedMT: merkle,
 		RevSMT:   newSMT,
+		Date:     time.Now(),
 	}
 	_, err = tree.AddBulkRevocationToTree(revokedCerts)
 
