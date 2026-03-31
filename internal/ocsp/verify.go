@@ -68,7 +68,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 			// Verify that the date matches the freq period
 
 			epochDate := m.Proof.CombinedProof.IssueDate
-			if date.Before(epochDate.Add(-sl.Frequency)) || epochDate.After(epochDate) {
+			if date.Before(epochDate.Add(-sl.Frequency)) || date.After(epochDate) {
 				return false, fmt.Errorf("time not matching: response timestamp %s not in period  [%s, %s]",
 					date, epochDate.Add(-sl.Frequency), epochDate)
 			}
