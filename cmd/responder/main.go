@@ -5,9 +5,7 @@ import (
 	"crypto"
 	"crypto/rsa"
 	"encoding/gob"
-	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"math/big"
 	"merkle-ocsp/internal/ocsp"
@@ -70,7 +68,7 @@ func main() {
 	}
 
 }
-func (s *server) key(w http.ResponseWriter, req *http.Request) {
+func (s *server) key(w http.ResponseWriter, _ *http.Request) {
 	fmt.Println("key")
 	enc := gob.NewEncoder(w)
 	err := enc.Encode(s.Key.PublicKey)
@@ -78,14 +76,14 @@ func (s *server) key(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 }
-func (s *server) ping(w http.ResponseWriter, req *http.Request) {
+func (s *server) ping(w http.ResponseWriter, _ *http.Request) {
 	fmt.Println("ping req")
 	_, err := w.Write([]byte("ping from server"))
 	if err != nil {
 		return
 	}
 }
-func (s *server) stop(w http.ResponseWriter, req *http.Request) {
+func (s *server) stop(w http.ResponseWriter, _ *http.Request) {
 	fmt.Println("stop request")
 	_, err := w.Write([]byte("Stopping ticker"))
 	if err != nil {
@@ -93,7 +91,7 @@ func (s *server) stop(w http.ResponseWriter, req *http.Request) {
 	}
 	s.done <- false
 }
-func (s *server) start(w http.ResponseWriter, req *http.Request) {
+func (s *server) start(w http.ResponseWriter, _ *http.Request) {
 	fmt.Println("Start request")
 	_, err := w.Write([]byte("Starting ticker"))
 	if err != nil {
@@ -148,15 +146,11 @@ func (s *server) addRevokedCertificates(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "bad data input", http.StatusBadRequest)
 		return
 	}
-	if err != nil {
-		http.Error(w, "bad data input", http.StatusBadRequest)
-		return
-	}
 	s.c.AddRevokedCertificates(certificates)
 }
 
 // TODO: make it date based
-func (s *server) getSignedLandmark(w http.ResponseWriter, r *http.Request) {
+func (s *server) getSignedLandmark(w http.ResponseWriter, _ *http.Request) {
 	if s.signed != nil {
 		log.Println("signed-lm: ", s.signed)
 	}
@@ -175,7 +169,7 @@ func (s *server) getSignedLandmark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
-func testAddCert(w http.ResponseWriter, r *http.Request) {
+func testAddCert(_ http.ResponseWriter, _ *http.Request) {
 	serial := big.NewInt(1111)
 	serialBytes := serial.Bytes()
 
@@ -200,7 +194,7 @@ func testAddCert(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("posted")
 }
 
-func testRevokeCert(w http.ResponseWriter, r *http.Request) {
+func testRevokeCert(_ http.ResponseWriter, _ *http.Request) {
 
 	serial := big.NewInt(1111)
 	serialBytes := serial.Bytes()
@@ -302,7 +296,7 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println("Found Landmark: ", lm)
 }
-func testNewResponse(w http.ResponseWriter, r *http.Request) {
+func testNewResponse(_ http.ResponseWriter, _ *http.Request) {
 
 	cert := []byte("revoked-id-002")
 	var buffer bytes.Buffer
@@ -313,7 +307,7 @@ func testNewResponse(w http.ResponseWriter, r *http.Request) {
 		panic(err)
 	}
 	var lmBody ocsp.Response
-	response, err := http.Post("http://localhost:8080/proof/response", "application/octet-stream", buffer)
+	response, err := http.Post("http://localhost:8080/proof/response", "application/octet-stream", &buffer)
 	if err != nil {
 		return
 	}
