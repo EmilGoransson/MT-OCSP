@@ -1,5 +1,7 @@
 ## Merkle OCSP
 
+TODO: Add cert should take a date as well? 
+
 Each leaf contains (Serial | IssueDate)
 
 

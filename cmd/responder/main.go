@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
@@ -132,6 +133,7 @@ func (s *server) addCertificates(w http.ResponseWriter, r *http.Request) {
 	log.Println("from cert add", certificates)
 	s.c.AddCertificates(certificates)
 }
+
 func (s *server) addRevokedCertificates(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("rev-cert")
 	if r.Method != http.MethodPost {
@@ -180,6 +182,12 @@ func testAddCert(_ http.ResponseWriter, _ *http.Request) {
 		cert2 := []byte("revoked-id-002")
 	*/
 	certs := [][]byte{serialBytes, serialBytes2}
+
+	for _ = range 1000000 {
+		rnd, _ := rand.Int(rand.Reader, big.NewInt(99999999999999))
+		certs = append(certs, rnd.Bytes())
+	}
+
 	var buffer bytes.Buffer
 	enc := gob.NewEncoder(&buffer)
 	err := enc.Encode(certs)
