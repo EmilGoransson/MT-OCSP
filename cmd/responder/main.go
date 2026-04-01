@@ -213,7 +213,7 @@ func testRevokeCert(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		panic(err)
 	}
-	response, err := http.Post("http://localhost:8080/cert/revoke", "application/json", &buffer)
+	response, err := http.Post("http://localhost:8080/cert/revoke", "application/octet-stream", &buffer)
 	if err != nil {
 		return
 	}
@@ -260,17 +260,13 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no landmarks issued", http.StatusInternalServerError)
 		return
 	}
-	bodyStruct := struct {
-		Certificate []byte    `json:"certificates"`
-		Serial      *big.Int  `json:"serial"`
-		Date        time.Time `json:"issue-date"`
-	}{}
-	body, err := io.ReadAll(r.Body)
+	var bodyStruct ocsp.Request
+	dec := gob.NewDecoder(r.Body)
+	err := dec.Decode(&bodyStruct)
 	if err != nil {
 		http.Error(w, "no data", http.StatusBadRequest)
 		return
 	}
-	err = json.Unmarshal(body, &bodyStruct)
 	if err != nil {
 		panic(err)
 	}
@@ -298,13 +294,10 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	res, err := ocsp.NewResponse(bodyStruct.Certificate, lm, s.c.CurrentLandmark)
 	fmt.Println(res)
-	retBody, err := json.Marshal(res)
+	enc := gob.NewEncoder(w)
+	err = enc.Encode(res)
 	if err != nil {
 		http.Error(w, "failed to marshal response", http.StatusInternalServerError)
-		return
-	}
-	_, err = w.Write(retBody)
-	if err != nil {
 		return
 	}
 	fmt.Println("Found Landmark: ", lm)
@@ -324,7 +317,7 @@ func testNewResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	lmBody := ocsp.Response{}
 	b := bytes.NewBuffer(out)
-	response, err := http.Post("http://localhost:8080/proof/response", "application/json", b)
+	response, err := http.Post("http://localhost:8080/proof/response", "application/octet-stream", b)
 	if err != nil {
 		return
 	}
