@@ -2,6 +2,11 @@ package main
 
 import (
 	"bytes"
+	"crypto"
+	"crypto/rsa"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -38,12 +43,60 @@ func main() {
 	r := TestNewResponse(serialBytes, serial, date)
 	// To check bad timestamp
 	//r.Proof.CombinedProof.IssueDate = time.Now()
+
+	// Fetch the servers public key
+	req, err := http.Get("http://localhost:8080/key")
+	if err != nil {
+		panic(err)
+	}
+	// Decodes the public bytes send via tcp
+	dec := gob.NewDecoder(req.Body)
+	var pub = rsa.PublicKey{}
+	err = dec.Decode(&pub)
+	if err != nil {
+		return
+	}
+	// Validate the signature
+	valid, err := Validate(lm, &pub)
+	fmt.Printf("signature valid: , %t\n", valid)
+	if err != nil {
+		panic(err)
+	}
+	// Verifies the proof in r=response
 	verify, err := ocsp.Verify(r, lm, serial.Bytes(), date)
 	fmt.Printf("Validating returned proof for status=%s: Proof valid:  %t\n", ocsp.Status(r.Status), verify)
 	fmt.Println(verify)
 	if err != nil {
 		panic(err)
 	}
+
+}
+
+// Validate validates a signed landmark against a public key
+func Validate(l *ocsp.SignedLandmark, k *rsa.PublicKey) (bool, error) {
+	if l == nil || k == nil {
+		return false, fmt.Errorf("input cant be nil")
+	}
+	h := sha256.New()
+	logSize := make([]byte, 8)
+	binary.BigEndian.PutUint64(logSize, l.LogSize)
+	date, err := l.Date.MarshalBinary()
+	if err != nil {
+		return false, nil
+	}
+	freqBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(freqBytes, uint64(l.Frequency))
+	// Structure of the SignedLandmark
+	h.Write(l.LogRoot)
+	h.Write(logSize)
+	h.Write(freqBytes)
+	h.Write(date)
+	s := h.Sum(nil)
+	err = rsa.VerifyPKCS1v15(k, crypto.SHA256, s, l.SignedHashData)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 
 }
 
@@ -103,4 +156,7 @@ func TestNewResponse(b []byte, serial *big.Int, date time.Time) *ocsp.Response {
 	msg, _ := io.ReadAll(response.Body)
 	log.Fatalf("got status, %s, %s ", response.Status, msg)
 	return nil
+}
+func FetchKey() {
+
 }

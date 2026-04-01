@@ -104,8 +104,8 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash, f time.Durati
 	// Write bytes and hash
 	hasher.Write(rootHash)
 	hasher.Write(treeSizeHash)
-	hasher.Write(timeHash)
 	hasher.Write(freqBytes)
+	hasher.Write(timeHash)
 	hash := hasher.Sum(nil)
 	signedHash, err := k.Sign(rand.Reader, hash, h)
 	if err != nil {
@@ -130,7 +130,7 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash, f time.Durati
 
 // lNewest contains the rev-combined-tree always
 
-// newLandmarkProof generates a LandmarkProof used to prove the membership or non membership
+// NewLandmarkProof generates a LandmarkProof used to prove the membership or non membership
 func (l *Landmark) NewLandmarkProof(hash []byte, lNewest *Landmark) (*LandmarkProof, error) {
 	// Generate combinedTree Proof
 	if l == nil {

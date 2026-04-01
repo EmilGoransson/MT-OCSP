@@ -84,7 +84,7 @@ func smtTest() {
 	pKey, _ := pem.Decode(receivedKeyPairPEMBytes)
 
 	// Prints public key
-	fmt.Println("Pkey: ", pKey.Bytes)
+	fmt.Println("Key: ", pKey.Bytes)
 
 	is, err := tree.Has(hs)
 	if err != nil {

@@ -38,7 +38,7 @@ func NewController() (*Controller, error) {
 	}, nil
 }
 
-// AddCertificates queues certificates for the next period.
+// AddCertificates queues certificates as issued for the next period.
 func (c *Controller) AddCertificates(certs [][]byte) {
 	c.Certificates.addIssued(certs)
 }
@@ -66,6 +66,7 @@ func (c *CertificatesNext) addRevoked(certs [][]byte) {
 	}
 }
 
+// refresh fetches the queued issued and revoked certificates and clears the queue
 func (c *CertificatesNext) refresh() (issued [][]byte, revoked [][]byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -112,6 +113,8 @@ func (c *Controller) StartPeriod(done chan bool, ch chan<- error) {
 		}
 	}()
 }
+
+// updateController handles a new epoch
 func (c *Controller) updateController() error {
 	fmt.Println("Updating!")
 	issued, revoked := c.Certificates.refresh()
@@ -139,7 +142,7 @@ func (c *Controller) updateController() error {
 
 // GetLandmarkFromDate Finds a Landmark that covered the date.
 // Idea: Each cert is issued during some time, placing them within one epoch.
-// Validate that it works
+//  intervalStart-> |---------| <- beforeEnd
 func (c *Controller) GetLandmarkFromDate(date time.Time) (*ocsp.Landmark, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

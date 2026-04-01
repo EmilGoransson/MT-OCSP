@@ -137,7 +137,7 @@ func TestLandmarkLog(t *testing.T) {
 			// Test 3: Unknown (never issued)
 			unknownCert := []byte("this-util-was-never-issued")
 			hash := util.HashCert(unknownCert)
-			responseUnknown, err := NewResponse(hash, lm2, lm2)
+			responseUnknown, err := newResponse(hash, lm2, lm2)
 			if err != nil {
 				t.Fatalf("creating merkle response for unknown util: %v", err)
 			}

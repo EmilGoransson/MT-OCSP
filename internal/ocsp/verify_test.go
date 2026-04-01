@@ -73,7 +73,7 @@ func TestVerifyGood(t *testing.T) {
 	goodCert := certs[1]
 	resp, err := NewResponse(goodCert, lm, lm)
 	if err != nil {
-		t.Fatalf("NewResponse: %v", err)
+		t.Fatalf("newResponse: %v", err)
 	}
 	if resp.Status != Good {
 		t.Fatalf("expected Good status, got %d", resp.Status)
@@ -97,7 +97,7 @@ func TestVerifyRevoked(t *testing.T) {
 	revokedCert := certs[0]
 	resp, err := NewResponse(revokedCert, lm, lm)
 	if err != nil {
-		t.Fatalf("NewResponse: %v", err)
+		t.Fatalf("newResponse: %v", err)
 	}
 	if resp.Status != Revoked {
 		t.Fatalf("expected Revoked status, got %d", resp.Status)
@@ -170,9 +170,9 @@ func TestVerifyUnknownGoodResponseClaimingUnknown(t *testing.T) {
 func TestVerifyUnknownEndToEndCurrentlyFails(t *testing.T) {
 	_, lm, sl := setup(t)
 	unknownCert := []byte("never-issued")
-	resp, err := NewResponse(unknownCert, lm, lm)
+	resp, err := newResponse(unknownCert, lm, lm)
 	if err != nil {
-		t.Fatalf("NewResponse: %v", err)
+		t.Fatalf("newResponse: %v", err)
 	}
 	if resp.Status != Unknown {
 		t.Fatalf("expected Unknown status, got %d", resp.Status)

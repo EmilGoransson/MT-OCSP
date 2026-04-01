@@ -20,7 +20,6 @@ func NewEmptyTree() *Combined {
 	return &Combined{Root: nil, Date: time.Now(), IssuedMT: nil, RevSMT: nil}
 }
 
-// TODO: Perhaps create function that takes input blocks for MT and input blocks for Sparse & adds them to tree?
 func NewCombined(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*Combined, error) {
 	if rTree == nil {
 		return nil, fmt.Errorf("the revcation tree must be non nil")
@@ -131,6 +130,8 @@ func (c *Combined) addIssuanceToTree() {
 
 	c.updateGlobalRoot()
 }
+
+// updateGlobalRoot calculats the combined hash of the two subtrees MT and SMT
 func (c *Combined) updateGlobalRoot() {
 	h := sha256.New()
 	h.Write(c.IssuedMT.Root)

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/rsa"
+	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,7 +18,7 @@ import (
 )
 
 type server struct {
-	pKey    *rsa.PrivateKey
+	Key     *rsa.PrivateKey
 	c       *responder.Controller
 	latest  *ocsp.Landmark
 	signed  *ocsp.SignedLandmark
@@ -33,7 +34,7 @@ func main() {
 	c.SetFrequency(15 * time.Second)
 	key, _ := util.NewKeyPair(2048)
 	s := &server{
-		pKey:    key,
+		Key:     key,
 		c:       c,
 		done:    done,
 		chError: ch,
@@ -48,8 +49,9 @@ func main() {
 	http.HandleFunc("/cert/revoke", s.addRevokedCertificates)
 	http.HandleFunc("/test/cert/add", testAddCert)
 	http.HandleFunc("/test/cert/revoke", testRevokeCert)
-	http.HandleFunc("/test/proof/response", TestNewResponse)
-	http.HandleFunc("/proof/response", s.NewResponse)
+	http.HandleFunc("/test/proof/response", testNewResponse)
+	http.HandleFunc("/proof/response", s.newResponse)
+	http.HandleFunc("/key", s.key)
 
 	http.HandleFunc("/landmark", s.getSignedLandmark)
 	http.HandleFunc("/proof/hash", s.getLandmarkProof)
@@ -67,6 +69,14 @@ func main() {
 		panic(err)
 	}
 
+}
+func (s *server) key(w http.ResponseWriter, req *http.Request) {
+	fmt.Println("key")
+	enc := gob.NewEncoder(w)
+	err := enc.Encode(s.Key.PublicKey)
+	if err != nil {
+		return
+	}
 }
 func (s *server) ping(w http.ResponseWriter, req *http.Request) {
 	fmt.Println("ping req")
@@ -154,7 +164,7 @@ func (s *server) getSignedLandmark(w http.ResponseWriter, r *http.Request) {
 	if s.signed != nil {
 		log.Println("signed-lm: ", s.signed)
 	}
-	signed, err := s.c.CurrentLandmark.NewSignedHead(s.pKey, crypto.SHA256, s.c.Frequency)
+	signed, err := s.c.CurrentLandmark.NewSignedHead(s.Key, crypto.SHA256, s.c.Frequency)
 	if err != nil {
 		http.Error(w, "no landmark created", http.StatusInternalServerError)
 		return
@@ -253,7 +263,7 @@ func (s *server) getLandmarkProof(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusCreated)
 }
-func (s *server) NewResponse(w http.ResponseWriter, r *http.Request) {
+func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -311,7 +321,7 @@ func (s *server) NewResponse(w http.ResponseWriter, r *http.Request) {
 	}
 	fmt.Println("Found Landmark: ", lm)
 }
-func TestNewResponse(w http.ResponseWriter, r *http.Request) {
+func testNewResponse(w http.ResponseWriter, r *http.Request) {
 
 	cert := []byte("revoked-id-002")
 

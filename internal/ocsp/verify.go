@@ -12,7 +12,6 @@ import (
 	mt "github.com/txaty/go-merkletree"
 )
 
-// nl = newest landmark
 // Verify is used by the client to verify sent landmark
 func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool, error) {
 	block, err := tree.ByteToDataBlock(hash)

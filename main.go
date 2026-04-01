@@ -181,7 +181,7 @@ func demo() {
 			// Generate OCSP response
 			fmt.Println(fetchedTree)
 			fmt.Println(fetchedLog)
-			res, _ := ocsp.NewResponse(certToCheck, notReallyLandmark)
+			res, _ := ocsp.newResponse(certToCheck, notReallyLandmark)
 
 			// to be encoded and sent to the client
 

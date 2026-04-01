@@ -23,7 +23,7 @@ func TestNewMerkleResponse(t *testing.T) {
 	t.Run("returns response for issued util", func(t *testing.T) {
 		resp, err := NewResponse(certs[0], lm1, lm1)
 		if err != nil {
-			t.Fatalf("NewResponse() returned error: %v", err)
+			t.Fatalf("newResponse() returned error: %v", err)
 		}
 		if resp == nil {
 			t.Fatal("Expected non-nil response")
@@ -39,7 +39,7 @@ func TestNewMerkleResponse(t *testing.T) {
 	t.Run("response status is Good for issued non-revoked util", func(t *testing.T) {
 		resp, err := NewResponse(certs[1], lm1, lm1)
 		if err != nil {
-			t.Fatalf("NewResponse() returned error: %v", err)
+			t.Fatalf("newResponse() returned error: %v", err)
 		}
 		if resp.Status != Good {
 			t.Errorf("Expected status Good (%d), got %d", Good, resp.Status)
@@ -53,7 +53,7 @@ func TestNewMerkleResponse(t *testing.T) {
 		}
 		resp, err := NewResponse(certs[2], lm1, lm1)
 		if err != nil {
-			t.Fatalf("NewResponse() returned error: %v", err)
+			t.Fatalf("newResponse() returned error: %v", err)
 		}
 		if resp.Status != Revoked {
 			t.Errorf("Expected status Revoked (%d), got %d", Revoked, resp.Status)
@@ -66,7 +66,7 @@ func TestNewMerkleResponse(t *testing.T) {
 		unknownCert := []byte("hibbjhfa")
 		resp, err := NewResponse(unknownCert, lm1, lm1)
 		if err != nil {
-			t.Fatalf("NewResponse() returned error: %v", err)
+			t.Fatalf("newResponse() returned error: %v", err)
 		}
 		if resp.Status != Unknown {
 			t.Errorf("Expected status Unknown (%d), got %d", Unknown, resp.Status)
