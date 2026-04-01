@@ -107,13 +107,14 @@ func (s *server) addCertificate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	body, err := io.ReadAll(r.Body)
-	fmt.Println("from cert add", body)
+	var c []byte
+	enc := gob.NewDecoder(r.Body)
+	err := enc.Decode(&c)
 	if err != nil {
 		http.Error(w, "bad data input", http.StatusBadRequest)
 		return
 	}
-	s.c.AddCertificates([][]byte{body})
+	s.c.AddCertificates([][]byte{c})
 }
 func (s *server) addCertificates(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("add-certs")
@@ -121,21 +122,17 @@ func (s *server) addCertificates(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	bodyStruct := struct {
-		Certificates [][]byte
-	}{}
-	body, err := io.ReadAll(r.Body)
+	var certificates [][]byte
+
+	enc := gob.NewDecoder(r.Body)
+	err := enc.Decode(&certificates)
+
 	if err != nil {
 		http.Error(w, "reading data input", http.StatusBadRequest)
 		return
 	}
-	err = json.Unmarshal(body, &bodyStruct)
-	if err != nil {
-		http.Error(w, "bad data input", http.StatusBadRequest)
-		return
-	}
-	log.Println("from cert add", body)
-	s.c.AddCertificates(bodyStruct.Certificates)
+	log.Println("from cert add", certificates)
+	s.c.AddCertificates(certificates)
 }
 func (s *server) addRevokedCertificates(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("rev-cert")
@@ -143,20 +140,19 @@ func (s *server) addRevokedCertificates(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	bodyStruct := struct {
-		Certificates [][]byte
-	}{}
-	body, err := io.ReadAll(r.Body)
+	var certificates [][]byte
+
+	enc := gob.NewDecoder(r.Body)
+	err := enc.Decode(&certificates)
 	if err != nil {
 		http.Error(w, "bad data input", http.StatusBadRequest)
 		return
 	}
-	err = json.Unmarshal(body, &bodyStruct)
 	if err != nil {
 		http.Error(w, "bad data input", http.StatusBadRequest)
 		return
 	}
-	s.c.AddRevokedCertificates(bodyStruct.Certificates)
+	s.c.AddRevokedCertificates(certificates)
 }
 
 // TODO: make it date based
@@ -170,8 +166,11 @@ func (s *server) getSignedLandmark(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.signed = signed
-	out, err := json.Marshal(signed)
-	w.Write(out)
+	enc := gob.NewEncoder(w)
+	err = enc.Encode(signed)
+	if err != nil {
+		http.Error(w, "encoding lm failed", http.StatusInternalServerError)
+	}
 	if err != nil {
 		return
 	}
@@ -187,18 +186,13 @@ func testAddCert(w http.ResponseWriter, r *http.Request) {
 		cert2 := []byte("revoked-id-002")
 	*/
 	certs := [][]byte{serialBytes, serialBytes2}
-
-	body := struct {
-		Certificates [][]byte
-	}{
-		Certificates: certs,
-	}
-	out, err := json.Marshal(body)
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	err := enc.Encode(certs)
 	if err != nil {
 		panic(err)
 	}
-	b := bytes.NewBuffer(out)
-	response, err := http.Post("http://localhost:8080/cert/add", "application/json", b)
+	response, err := http.Post("http://localhost:8080/cert/add", "application/octet-stream", &buffer)
 	if err != nil {
 		return
 	}
@@ -211,17 +205,15 @@ func testRevokeCert(w http.ResponseWriter, r *http.Request) {
 	serial := big.NewInt(1111)
 	serialBytes := serial.Bytes()
 
-	body := struct {
-		Certificates [][]byte `json:"certificates"`
-	}{
-		Certificates: [][]byte{serialBytes},
-	}
-	out, err := json.Marshal(body)
+	certs := [][]byte{serialBytes}
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	err := enc.Encode(certs)
+
 	if err != nil {
 		panic(err)
 	}
-	b := bytes.NewBuffer(out)
-	response, err := http.Post("http://localhost:8080/cert/revoke", "application/json", b)
+	response, err := http.Post("http://localhost:8080/cert/revoke", "application/json", &buffer)
 	if err != nil {
 		return
 	}
@@ -230,7 +222,6 @@ func testRevokeCert(w http.ResponseWriter, r *http.Request) {
 }
 
 // getLandmarkProof returns the proof to the landmark for a specific hash
-// Doesnt return anything for some reason
 func (s *server) getLandmarkProof(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method != http.MethodPost {
@@ -243,14 +234,11 @@ func (s *server) getLandmarkProof(w http.ResponseWriter, r *http.Request) {
 	}
 	// Check if the cert is in t
 	var cert []byte
-	body, err := io.ReadAll(r.Body)
+	dec := gob.NewDecoder(r.Body)
+	err := dec.Decode(&cert)
 	if err != nil {
 		http.Error(w, "reading data input", http.StatusBadRequest)
 		return
-	}
-	err = json.Unmarshal(body, &cert)
-	if err != nil {
-		panic(err)
 	}
 	// TODO: make it so that the controller issues the proof (server should always call the controller)
 	proof, err := s.c.CurrentLandmark.NewLandmarkProof(cert, s.c.CurrentLandmark)
