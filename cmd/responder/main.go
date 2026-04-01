@@ -305,32 +305,25 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 func testNewResponse(w http.ResponseWriter, r *http.Request) {
 
 	cert := []byte("revoked-id-002")
+	var buffer bytes.Buffer
 
-	body := struct {
-		Certificate []byte `json:"certificates"`
-	}{
-		Certificate: cert,
-	}
-	out, err := json.Marshal(body)
+	enc := gob.NewEncoder(&buffer)
+	err := enc.Encode(cert)
 	if err != nil {
 		panic(err)
 	}
-	lmBody := ocsp.Response{}
-	b := bytes.NewBuffer(out)
-	response, err := http.Post("http://localhost:8080/proof/response", "application/octet-stream", b)
+	var lmBody ocsp.Response
+	response, err := http.Post("http://localhost:8080/proof/response", "application/octet-stream", buffer)
 	if err != nil {
 		return
 	}
 	if response.StatusCode == http.StatusOK {
 		fmt.Println("200")
-		resBody, err := io.ReadAll(response.Body)
+		dec := gob.NewDecoder(response.Body)
+		err := dec.Decode(&lmBody)
 		if err != nil {
 			panic(err)
 		}
-		err = json.Unmarshal(resBody, &lmBody)
 		fmt.Println(lmBody)
 	}
-
-	//json.Unmarshal(response.Body, &body)
-	//fmt.Println("revoked")
 }
