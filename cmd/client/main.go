@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/gob"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -101,7 +100,6 @@ func Validate(l *ocsp.SignedLandmark, k *rsa.PublicKey) (bool, error) {
 }
 
 func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
-
 	response, err := http.Get("http://localhost:8080/landmark")
 	if err != nil {
 		return nil, fmt.Errorf("getting response, %v", err)
@@ -109,47 +107,40 @@ func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("status not 200")
 	}
-	if err != nil {
-		return nil, fmt.Errorf("getting response%v", err)
-	}
-	lm := ocsp.SignedLandmark{}
-	resBody, err := io.ReadAll(response.Body)
-
+	var lm ocsp.SignedLandmark
+	dec := gob.NewDecoder(response.Body)
+	err = dec.Decode(&lm)
 	if err != nil {
 		return nil, fmt.Errorf("reading body, %v", err)
 	}
-	res := json.Unmarshal(resBody, &lm)
-	fmt.Println(res)
+	fmt.Println(lm)
 	return &lm, nil
 }
 
 func TestNewResponse(b []byte, serial *big.Int, date time.Time) *ocsp.Response {
-	body := struct {
-		Certificate []byte    `json:"certificates"`
-		Serial      *big.Int  `json:"serial"`
-		Date        time.Time `json:"issue-date"`
-	}{
+	body := ocsp.Request{
 		Certificate: b,
 		Serial:      serial,
 		Date:        date,
 	}
-	out, err := json.Marshal(body)
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	err := enc.Encode(body)
 	if err != nil {
 		panic(err)
 	}
-	lmBody := ocsp.Response{}
-	buff := bytes.NewBuffer(out)
-	response, err := http.Post("http://localhost:8080/proof/response", "application/json", buff)
+	var lmBody ocsp.Response
+	response, err := http.Post("http://localhost:8080/proof/response", "application/json", &buffer)
 	if err != nil {
 		return nil
 	}
 	if response.StatusCode == http.StatusOK {
 		fmt.Println("200")
-		resBody, err := io.ReadAll(response.Body)
+		dec := gob.NewDecoder(response.Body)
+		err := dec.Decode(&lmBody)
 		if err != nil {
 			panic(err)
 		}
-		err = json.Unmarshal(resBody, &lmBody)
 		fmt.Println(lmBody)
 		return &lmBody
 	}

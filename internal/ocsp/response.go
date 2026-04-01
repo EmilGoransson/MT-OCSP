@@ -2,6 +2,7 @@ package ocsp
 
 import (
 	"fmt"
+	"math/big"
 	"merkle-ocsp/internal/tree"
 	"time"
 )
@@ -18,6 +19,11 @@ type Response struct {
 	Status    int8
 	Timestamp time.Time
 	Proof     *LandmarkProof
+}
+type Request struct {
+	Certificate []byte
+	Serial      *big.Int
+	Date        time.Time
 }
 
 func NewResponse(certHash []byte, l *Landmark, lNewest *Landmark) (*Response, error) {

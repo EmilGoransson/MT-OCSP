@@ -142,7 +142,8 @@ func (c *Controller) updateController() error {
 
 // GetLandmarkFromDate Finds a Landmark that covered the date.
 // Idea: Each cert is issued during some time, placing them within one epoch.
-//  intervalStart-> |---------| <- beforeEnd
+//
+//	intervalStart-> |---------| <- beforeEnd
 func (c *Controller) GetLandmarkFromDate(date time.Time) (*ocsp.Landmark, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
