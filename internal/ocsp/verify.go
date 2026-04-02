@@ -12,14 +12,6 @@ import (
 	mt "github.com/txaty/go-merkletree"
 )
 
-func verifyIssueDateInEpoch(date time.Time, epochDate time.Time, frequency time.Duration) error {
-	if date.Before(epochDate.Add(-frequency)) || date.After(epochDate) {
-		return fmt.Errorf("time not matching: response timestamp %s not in period  [%s, %s]",
-			date, epochDate.Add(-frequency), epochDate)
-	}
-	return nil
-}
-
 // Verify is used by the client to verify sent landmark
 func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool, error) {
 	block, err := tree.ByteToDataBlock(hash)
@@ -29,9 +21,6 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 	// Verify CombinedProof
 	if m == nil || m.Proof == nil || m.Proof.CombinedProof == nil || sl == nil {
 		return false, fmt.Errorf("bad Response")
-	}
-	if validEpochDate := verifyIssueDateInEpoch(date, m.Proof.CombinedProof.IssueDate, sl.Frequency); validEpochDate != nil {
-		return false, validEpochDate
 	}
 
 	nonIssueProof := m.Proof.CombinedProof.NonIssueProof

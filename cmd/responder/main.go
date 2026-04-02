@@ -172,8 +172,8 @@ func (s *server) getSignedLandmark(w http.ResponseWriter, _ *http.Request) {
 	}
 }
 func testAddCert(_ http.ResponseWriter, _ *http.Request) {
-	serial := big.NewInt(1111)
-	serialBytes := serial.Bytes()
+	// serial := big.NewInt(1111)
+	//serialBytes := serial.Bytes()
 
 	serial2 := big.NewInt(2222)
 	serialBytes2 := serial2.Bytes()
@@ -182,7 +182,7 @@ func testAddCert(_ http.ResponseWriter, _ *http.Request) {
 		cert := append([]byte("issued-id-001"))
 		cert2 := []byte("revoked-id-002")
 	*/
-	certs := [][]byte{serialBytes, serialBytes2}
+	certs := [][]byte{serialBytes2}
 
 	for range 100000 {
 		tmpSerial, _ := rand.Int(rand.Reader, big.NewInt(999999999999))
