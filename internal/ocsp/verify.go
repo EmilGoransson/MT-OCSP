@@ -12,6 +12,14 @@ import (
 	mt "github.com/txaty/go-merkletree"
 )
 
+func verifyIssueDateInEpoch(date time.Time, epochDate time.Time, frequency time.Duration) error {
+	if date.Before(epochDate.Add(-frequency)) || date.After(epochDate) {
+		return fmt.Errorf("time not matching: response timestamp %s not in period  [%s, %s]",
+			date, epochDate.Add(-frequency), epochDate)
+	}
+	return nil
+}
+
 // Verify is used by the client to verify sent landmark
 func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool, error) {
 	block, err := tree.ByteToDataBlock(hash)
@@ -22,14 +30,21 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 	if m == nil || m.Proof == nil || m.Proof.CombinedProof == nil || sl == nil {
 		return false, fmt.Errorf("bad Response")
 	}
+	if validEpochDate := verifyIssueDateInEpoch(date, m.Proof.CombinedProof.IssueDate, sl.Frequency); validEpochDate != nil {
+		return false, validEpochDate
+	}
+
 	nonIssueProof := m.Proof.CombinedProof.NonIssueProof
 	switch m.Status {
 	// We expect inclusion in issue-proof & exclusion (inclusion but for empty hash) in revoke proof & RevProof = Nil
+	//
 	case Good:
 		{
 			if m.Proof.CombinedProof.IssueProof == nil || m.Proof.CombinedProof.RevProof == nil {
 				return false, fmt.Errorf("bad proof for status=good, missing proofs")
 			}
+			// verify date
+
 			verify, err := mt.Verify(block, m.Proof.CombinedProof.IssueProof, m.Proof.CombinedProof.IssueRoot, tree.DefaultMerkleConfig)
 			if err != nil {
 				return false, fmt.Errorf("verifying issue-proof, %v", err)

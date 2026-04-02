@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"crypto"
+	"crypto/rand"
 	"crypto/rsa"
 	"encoding/gob"
 	"fmt"
@@ -29,7 +30,7 @@ func main() {
 	ch := make(chan error)
 	done := make(chan bool)
 	c, _ := responder.NewController()
-	c.SetFrequency(15 * time.Second)
+	c.SetFrequency(20 * time.Second)
 	key, _ := util.NewKeyPair(2048)
 	s := &server{
 		Key:     key,
@@ -46,7 +47,7 @@ func main() {
 	http.HandleFunc("/cert/add", s.addCertificates)
 	http.HandleFunc("/cert/revoke", s.addRevokedCertificates)
 	http.HandleFunc("/test/cert/add", testAddCert)
-	http.HandleFunc("/test/cert/revoke", testRevokeCert)
+	http.HandleFunc("/test/cert/revoke", s.testRevokeCert)
 	http.HandleFunc("/test/proof/response", testNewResponse)
 	http.HandleFunc("/proof/response", s.newResponse)
 	http.HandleFunc("/key", s.key)
@@ -138,6 +139,7 @@ func (s *server) addRevokedCertificates(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
+
 	var certificates [][]byte
 
 	enc := gob.NewDecoder(r.Body)
@@ -175,11 +177,18 @@ func testAddCert(_ http.ResponseWriter, _ *http.Request) {
 
 	serial2 := big.NewInt(2222)
 	serialBytes2 := serial2.Bytes()
+
 	/*
 		cert := append([]byte("issued-id-001"))
 		cert2 := []byte("revoked-id-002")
 	*/
 	certs := [][]byte{serialBytes, serialBytes2}
+
+	for range 100000 {
+		tmpSerial, _ := rand.Int(rand.Reader, big.NewInt(999999999999))
+		certs = append(certs, tmpSerial.Bytes())
+	}
+
 	var buffer bytes.Buffer
 	enc := gob.NewEncoder(&buffer)
 	err := enc.Encode(certs)
@@ -194,12 +203,18 @@ func testAddCert(_ http.ResponseWriter, _ *http.Request) {
 	fmt.Println("posted")
 }
 
-func testRevokeCert(_ http.ResponseWriter, _ *http.Request) {
+func (s *server) testRevokeCert(_ http.ResponseWriter, _ *http.Request) {
 
 	serial := big.NewInt(1111)
 	serialBytes := serial.Bytes()
 
 	certs := [][]byte{serialBytes}
+
+	for i, cert := range s.c.Certificates.IssuedCertsNext {
+		if i%50 == 0 {
+			certs = append(certs, cert)
+		}
+	}
 	var buffer bytes.Buffer
 	enc := gob.NewEncoder(&buffer)
 	err := enc.Encode(certs)

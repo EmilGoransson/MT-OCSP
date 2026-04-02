@@ -130,7 +130,7 @@ func TestNewResponse(b []byte, serial *big.Int, date time.Time) *ocsp.Response {
 		panic(err)
 	}
 	var lmBody ocsp.Response
-	response, err := http.Post("http://localhost:8080/proof/response", "application/json", &buffer)
+	response, err := http.Post("http://localhost:8080/proof/response", "application/octet-stream", &buffer)
 	if err != nil {
 		return nil
 	}

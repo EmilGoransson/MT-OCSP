@@ -90,7 +90,7 @@ func ValidateExclusion(b []byte, proof *ExclusionProofSorted, root []byte, c *mt
 	}
 	// Case 1, insertion at the left-most
 	if proof.LProof != nil {
-		if bytes.Compare(b, proof.LVal) > 0 {
+		if bytes.Compare(b, proof.LVal) >= 0 {
 			return false, fmt.Errorf("bad proof: expected b to be smaller than LVal, b: %x, LVal: %x", b, proof.LVal)
 		}
 		lBlock, err := ByteToDataBlock(proof.LVal)
@@ -109,7 +109,7 @@ func ValidateExclusion(b []byte, proof *ExclusionProofSorted, root []byte, c *mt
 	}
 	// Case 3
 	if proof.RProof != nil {
-		if bytes.Compare(b, proof.RVal) < 0 {
+		if bytes.Compare(b, proof.RVal) <= 0 {
 			return false, fmt.Errorf("bad format: expected b to be larger than RVal, b: %x, LVal: %x", b, proof.RVal)
 		}
 		rBlock, err := ByteToDataBlock(proof.RVal)
