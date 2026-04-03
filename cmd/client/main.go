@@ -105,7 +105,7 @@ func main() {
 	verifyUnknownModified, err := ocsp.Verify(responseUnknown, lm, serialUnknown.Bytes(), dateUnknown)
 	fmt.Printf("[Modified Response] status=%s: Proof valid:  %t\n", ocsp.Status(responseUnknown.Status), verifyUnknownModified)
 	if err != nil {
-		log.Println("err")
+		log.Println(err)
 	}
 }
 
@@ -156,8 +156,7 @@ func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
 
 func postGetResponseProof(serial *big.Int, date time.Time) *ocsp.Response {
 	body := ocsp.Request{
-		Certificate: serial.Bytes(),
-		Serial:      serial,
+		SerialBytes: serial.Bytes(),
 		Date:        date,
 	}
 	var buffer bytes.Buffer

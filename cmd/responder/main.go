@@ -291,7 +291,7 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lm, err := s.c.GetLandmarkFromBytes(bodyStruct.Certificate)
+	lm, err := s.c.GetLandmarkFromBytes(bodyStruct.SerialBytes)
 	if err != nil {
 		log.Fatalf("finding the landmark %v", err)
 	}
@@ -304,7 +304,7 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	res, err := ocsp.NewResponse(bodyStruct.Certificate, lm, s.c.CurrentLandmark)
+	res, err := ocsp.NewResponse(bodyStruct.SerialBytes, lm, s.c.CurrentLandmark)
 	fmt.Println(res)
 	enc := gob.NewEncoder(w)
 	err = enc.Encode(res)
