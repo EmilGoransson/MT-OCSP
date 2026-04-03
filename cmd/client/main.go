@@ -16,63 +16,101 @@ import (
 	"time"
 )
 
+const ip = "http://localhost:8080"
+
 func main() {
-	//key, _ := util.NewKeyPair(2048)
 	// (Fake Cert)
-	// Random big-int (serial)
-	serial := big.NewInt(1111)
-	serialBytes := serial.Bytes()
-	date := time.Now()
-	//cert2, err := util.NewRandomCertificate(key, false)
-	// wait for cert to be "valid" time-wise (depends on frequency in responder)
+	// Random big-int (serial), & create "valid" issue time
+	t := time.Now()
+	serialGood := big.NewInt(1111)
+	dateGood := t
+
+	serialRevoked := big.NewInt(2222)
+	dateRevoked := t
+
+	serialUnknown := big.NewInt(3333)
+	dateUnknown := t
+
+	// Add the Certificates to the responder
+	postCertificates([][]byte{serialGood.Bytes(), serialRevoked.Bytes()})
+	postRevokedCertificates([][]byte{serialRevoked.Bytes()})
+
+	// Wait for the server to add the "issued certificates"
+	fmt.Println("Waiting 20s to simulate delay")
 	time.Sleep(20 * time.Second)
+
+	// Gets the latest landmark that includes the previously posted certificates (covers them all)
 	lm, err := TestGetSignedLandmark()
-	// Should Validate that the data matches the hash
 	if err != nil {
 		panic(err)
 	}
-	/*
-		 serial, err := util.ExtractSerial(cert2)
-
-		date, err := util.ExtractDate(cert2)
-		if err != nil {
-			panic(err)
-		} */
-	// TODO: Remove the serialBytes, only serial is needed
-	r := TestNewResponse(serialBytes, serial, date)
+	// Fetches status of a certificate via OCSP
+	responseGood := postGetResponseProof(serialGood, dateGood)
+	responseRevoked := postGetResponseProof(serialRevoked, dateRevoked)
+	responseUnknown := postGetResponseProof(serialUnknown, dateUnknown)
 	// To check bad timestamp
 	//r.Proof.CombinedProof.IssueDate = time.Now()
 
 	// Fetch the servers public key
-	req, err := http.Get("http://localhost:8080/key")
+	key, _ := getPublicKey()
+
+	// ValidateLandmark the signature using the servers public key
+	valid, err := ValidateLandmark(lm, key)
+	fmt.Printf("[Valid Landmark] Validating signature, Valid: %t\n", valid)
 	if err != nil {
-		panic(err)
-	}
-	// Decodes the public bytes send via tcp
-	dec := gob.NewDecoder(req.Body)
-	var pub = rsa.PublicKey{}
-	err = dec.Decode(&pub)
-	if err != nil {
-		return
-	}
-	// Validate the signature
-	valid, err := Validate(lm, &pub)
-	fmt.Printf("signature valid: , %t\n", valid)
-	if err != nil {
-		panic(err)
-	}
-	// Verifies the proof in r=response
-	verify, err := ocsp.Verify(r, lm, serial.Bytes(), date)
-	fmt.Printf("Validating returned proof for status=%s: Proof valid:  %t\n", ocsp.Status(r.Status), verify)
-	fmt.Println(verify)
-	if err != nil {
-		panic(err)
+		log.Println(err)
 	}
 
+	fmt.Println("=====================================")
+	fmt.Println("======== VALID RESPONSES =========")
+	fmt.Println("=====================================")
+
+	// Verifies the proof in
+	verifyGood, err := ocsp.Verify(responseGood, lm, serialGood.Bytes(), dateGood)
+	fmt.Printf("[Valid Response status=%s]  Proof valid:  %t\n", ocsp.Status(responseGood.Status), verifyGood)
+	if err != nil {
+		log.Println(err)
+	}
+	verifyRevoked, err := ocsp.Verify(responseRevoked, lm, serialRevoked.Bytes(), dateRevoked)
+	fmt.Printf("[Valid Response status=%s]  Proof valid:  %t\n", ocsp.Status(responseRevoked.Status), verifyRevoked)
+	if err != nil {
+		log.Println(err)
+	}
+	verifyUnknown, err := ocsp.Verify(responseUnknown, lm, serialUnknown.Bytes(), dateUnknown)
+	fmt.Printf("[Valid Response status=%s]  Proof valid:  %t\n", ocsp.Status(responseUnknown.Status), verifyUnknown)
+	if err != nil {
+		log.Println(err)
+	}
+
+	// Modify the responses and see if the proof is deemed false
+	fmt.Println("=====================================")
+	fmt.Println("======== MODIFIED RESPONSES =========")
+	fmt.Println("=====================================")
+
+	responseGood.Status = ocsp.Revoked
+	responseRevoked.Status = ocsp.Good
+	responseUnknown.Status = ocsp.Good
+
+	// Verify the modified proof again
+	verifyGoodModified, err := ocsp.Verify(responseGood, lm, serialGood.Bytes(), dateGood)
+	fmt.Printf("[Modified Response] status=%s: Proof valid:  %t\n", ocsp.Status(responseGood.Status), verifyGoodModified)
+	if err != nil {
+		log.Println(err)
+	}
+	verifyRevokedModified, err := ocsp.Verify(responseRevoked, lm, serialRevoked.Bytes(), dateRevoked)
+	fmt.Printf("[Modified Response] status=%s: Proof valid:  %t\n", ocsp.Status(responseRevoked.Status), verifyRevokedModified)
+	if err != nil {
+		log.Println(err)
+	}
+	verifyUnknownModified, err := ocsp.Verify(responseUnknown, lm, serialUnknown.Bytes(), dateUnknown)
+	fmt.Printf("[Modified Response] status=%s: Proof valid:  %t\n", ocsp.Status(responseUnknown.Status), verifyUnknownModified)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
-// Validate validates a signed landmark against a public key
-func Validate(l *ocsp.SignedLandmark, k *rsa.PublicKey) (bool, error) {
+// ValidateLandmark validates a signed landmark against a public key
+func ValidateLandmark(l *ocsp.SignedLandmark, k *rsa.PublicKey) (bool, error) {
 	if l == nil || k == nil {
 		return false, fmt.Errorf("input cant be nil")
 	}
@@ -100,7 +138,7 @@ func Validate(l *ocsp.SignedLandmark, k *rsa.PublicKey) (bool, error) {
 }
 
 func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
-	response, err := http.Get("http://localhost:8080/landmark")
+	response, err := http.Get(ip + "/landmark")
 	if err != nil {
 		return nil, fmt.Errorf("getting response, %v", err)
 	}
@@ -113,14 +151,12 @@ func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading body, %v", err)
 	}
-	fmt.Println(lm)
 	return &lm, nil
 }
 
-func TestNewResponse(b []byte, serial *big.Int, date time.Time) *ocsp.Response {
+func postGetResponseProof(serial *big.Int, date time.Time) *ocsp.Response {
 	body := ocsp.Request{
-		Certificate: b,
-		Serial:      serial,
+		SerialBytes: serial.Bytes(),
 		Date:        date,
 	}
 	var buffer bytes.Buffer
@@ -130,24 +166,61 @@ func TestNewResponse(b []byte, serial *big.Int, date time.Time) *ocsp.Response {
 		panic(err)
 	}
 	var lmBody ocsp.Response
-	response, err := http.Post("http://localhost:8080/proof/response", "application/octet-stream", &buffer)
+	response, err := http.Post(ip+"/proof/response", "application/octet-stream", &buffer)
 	if err != nil {
 		return nil
 	}
 	if response.StatusCode == http.StatusOK {
-		fmt.Println("200")
 		dec := gob.NewDecoder(response.Body)
 		err := dec.Decode(&lmBody)
 		if err != nil {
 			panic(err)
 		}
-		fmt.Println(lmBody)
 		return &lmBody
 	}
 	msg, _ := io.ReadAll(response.Body)
 	log.Fatalf("got status, %s, %s ", response.Status, msg)
 	return nil
 }
-func FetchKey() {
+func postCertificates(c [][]byte) {
 
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	err := enc.Encode(c)
+	if err != nil {
+		panic(err)
+	}
+	response, err := http.Post(ip+"/cert/add", "application/octet-stream", &buffer)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+}
+func postRevokedCertificates(c [][]byte) {
+
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	err := enc.Encode(c)
+	if err != nil {
+		panic(err)
+	}
+	response, err := http.Post(ip+"/cert/revoke", "application/octet-stream", &buffer)
+	if err != nil {
+		return
+	}
+	defer response.Body.Close()
+}
+func getPublicKey() (*rsa.PublicKey, error) {
+	req, err := http.Get(ip + "/key")
+	if err != nil {
+		return nil, err
+	}
+	// Decodes the public bytes send via tcp
+	dec := gob.NewDecoder(req.Body)
+	var pub = rsa.PublicKey{}
+	err = dec.Decode(&pub)
+	if err != nil {
+		return nil, err
+	}
+	return &pub, nil
 }

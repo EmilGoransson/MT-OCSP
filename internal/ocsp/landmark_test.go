@@ -94,7 +94,7 @@ func TestLandmarkLog(t *testing.T) {
 			t.Fatalf("failed to check active tree: %v", err)
 		}
 		if !inTree {
-			t.Fatalf("Certificate revoked in Epoch 1 is missing from Epoch 2's active tree")
+			t.Fatalf("SerialBytes revoked in Epoch 1 is missing from Epoch 2's active tree")
 		}
 	})
 

@@ -48,7 +48,7 @@ type CombinedProof struct {
 	IssueDate     time.Time
 	IssueEpochRev []byte
 	NonIssueProof *tree.ExclusionProofSorted
-	RevProof      *smt.SparseMerkleProof
+	RevProof      *smt.SparseCompactMerkleProof
 	RevEpochIssue []byte
 }
 
@@ -145,7 +145,7 @@ func (l *Landmark) NewLandmarkProof(hash []byte, lNewest *Landmark) (*LandmarkPr
 		return nil, err
 	}
 	var issuedProof *merkletree.Proof
-	var rProof smt.SparseMerkleProof
+	var rProof smt.SparseCompactMerkleProof
 	var cProof *CombinedProof
 
 	// Make into its own type of proof maybe since you need NewNonMembershipProof for EVERY tree in EVERY epoch, Only needs to be one if its Date based

@@ -22,7 +22,7 @@ func NewEmptyTree() *Combined {
 
 func NewCombined(issuedCerts [][]byte, revokedCerts [][]byte, rTree *Sparse) (*Combined, error) {
 	if rTree == nil {
-		return nil, fmt.Errorf("the revcation tree must be non nil")
+		return nil, fmt.Errorf("the revocation tree must be non nil")
 	}
 	var newSMT *Sparse
 	merkle, err := NewSorted(issuedCerts)
@@ -73,16 +73,16 @@ func (c *Combined) AddBulkRevocationToTree(hashes [][]byte) ([]byte, error) {
 	return newRoot, nil
 }
 
-func (c *Combined) NewMembershipProofRevoked(hash []byte) (smt.SparseMerkleProof, error) {
-	return c.RevSMT.Prove(hash)
+func (c *Combined) NewMembershipProofRevoked(hash []byte) (smt.SparseCompactMerkleProof, error) {
+	return c.RevSMT.ProveCompact(hash)
 }
-func (c *Combined) validateSparseMTMembershipProof(proof smt.SparseMerkleProof, value []byte) (bool, error) {
-	return smt.VerifyProof(proof, c.RevSMT.Root(), value, value, sha256.New()), nil
+func (c *Combined) validateSparseMTMembershipProof(proof smt.SparseCompactMerkleProof, value []byte) (bool, error) {
+	return smt.VerifyCompactProof(proof, c.RevSMT.Root(), value, value, sha256.New()), nil
 }
 
 // validateSparseMTNonMembershipProof expects the value to be empty if it's a Non membership proof
-func (c *Combined) validateSparseMTNonMembershipProof(proof smt.SparseMerkleProof, value []byte) (bool, error) {
-	return smt.VerifyProof(proof, c.RevSMT.Root(), value, []byte{}, sha256.New()), nil
+func (c *Combined) validateSparseMTNonMembershipProof(proof smt.SparseCompactMerkleProof, value []byte) (bool, error) {
+	return smt.VerifyCompactProof(proof, c.RevSMT.Root(), value, []byte{}, sha256.New()), nil
 }
 func (c *Combined) validateSortedMTMembershipProof(b []byte, proof *merkletree.Proof) (bool, error) {
 	dataBlock, err := ByteToDataBlock(b)

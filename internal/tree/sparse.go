@@ -121,7 +121,7 @@ func smtTest() {
 	hsVal, _ := tree.Get(hs)
 
 	// Check if hs = hsVal using proof
-	if smt.VerifyProof(proof, root, hs, hsVal, sha256.New()) {
+	if smt.VerifyCompactProof(proof, root, hs, hsVal, sha256.New()) {
 		fmt.Println("Proof verification succeeded.")
 	} else {
 		fmt.Println("Proof verification failed.")

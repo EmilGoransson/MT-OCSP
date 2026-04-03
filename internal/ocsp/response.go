@@ -2,7 +2,6 @@ package ocsp
 
 import (
 	"fmt"
-	"math/big"
 	"merkle-ocsp/internal/tree"
 	"time"
 )
@@ -21,8 +20,7 @@ type Response struct {
 	Proof     *LandmarkProof
 }
 type Request struct {
-	Certificate []byte
-	Serial      *big.Int
+	SerialBytes []byte
 	Date        time.Time
 }
 

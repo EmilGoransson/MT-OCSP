@@ -25,8 +25,9 @@ type server struct {
 	chError chan error
 }
 
+const port = ":8080"
+
 func main() {
-	port := ":8080"
 	ch := make(chan error)
 	done := make(chan bool)
 	c, _ := responder.NewController()
@@ -54,7 +55,9 @@ func main() {
 
 	http.HandleFunc("/landmark", s.getSignedLandmark)
 	http.HandleFunc("/proof/hash", s.getLandmarkProof)
-	fmt.Println("Listening at: ", "localhost:", port)
+	fmt.Println("[Server] Listening at: ", "localhost:", port)
+	s.c.StartPeriod(s.done, s.chError)
+	fmt.Printf("\n[Server] Started tracking, update frequency: %s", c.Frequency)
 	/*
 
 
@@ -288,7 +291,7 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lm, err := s.c.GetLandmarkFromBytes(bodyStruct.Certificate)
+	lm, err := s.c.GetLandmarkFromBytes(bodyStruct.SerialBytes)
 	if err != nil {
 		log.Fatalf("finding the landmark %v", err)
 	}
@@ -301,7 +304,7 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	res, err := ocsp.NewResponse(bodyStruct.Certificate, lm, s.c.CurrentLandmark)
+	res, err := ocsp.NewResponse(bodyStruct.SerialBytes, lm, s.c.CurrentLandmark)
 	fmt.Println(res)
 	enc := gob.NewEncoder(w)
 	err = enc.Encode(res)
