@@ -90,8 +90,6 @@ func (c *Controller) StartPeriod(done chan bool, ch chan<- error) {
 	defer c.mu.Unlock()
 	freq := c.Frequency
 
-	fmt.Println("--Started period!--", freq)
-
 	ticker := time.NewTicker(freq)
 
 	go func() {

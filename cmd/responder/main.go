@@ -25,8 +25,9 @@ type server struct {
 	chError chan error
 }
 
+const port = ":8080"
+
 func main() {
-	port := ":8080"
 	ch := make(chan error)
 	done := make(chan bool)
 	c, _ := responder.NewController()
@@ -54,7 +55,9 @@ func main() {
 
 	http.HandleFunc("/landmark", s.getSignedLandmark)
 	http.HandleFunc("/proof/hash", s.getLandmarkProof)
-	fmt.Println("Listening at: ", "localhost:", port)
+	fmt.Println("[Server] Listening at: ", "localhost:", port)
+	s.c.StartPeriod(s.done, s.chError)
+	fmt.Printf("\n[Server] Started tracking, update frequency: %s", c.Frequency)
 	/*
 
 

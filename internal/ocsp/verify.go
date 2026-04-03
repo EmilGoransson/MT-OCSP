@@ -38,7 +38,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 			if err != nil {
 				return false, fmt.Errorf("verifying issue-proof, %v", err)
 			}
-			notRevoked := smt.VerifyProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, []byte{}, sha256.New())
+			notRevoked := smt.VerifyCompactProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, []byte{}, sha256.New())
 			if !verify || !notRevoked || nonIssueProof != nil {
 				return false, fmt.Errorf("bad proof for status=good, expected, true, true, got: %t, %t  ", verify, notRevoked)
 			}
@@ -53,7 +53,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 			if err != nil {
 				return false, fmt.Errorf("verifying issue-proof, %v", err)
 			}
-			verifyRev := smt.VerifyProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, hash, sha256.New())
+			verifyRev := smt.VerifyCompactProof(*m.Proof.CombinedProof.RevProof, m.Proof.CombinedProof.RevRoot, hash, hash, sha256.New())
 			if !verify || !verifyRev || nonIssueProof != nil {
 				return false, fmt.Errorf("bad proof for revoked, expected, true, true, got: %t, %t  ", verify, verifyRev)
 			}
