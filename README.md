@@ -1,136 +1,150 @@
-## Merkle OCSP
+# Merkle OCSP
 
-Merkle-based OCSP prototype.
+A proof-of-concept OCSP responder that replaces per-certificate signed responses with cryptographic Merkle proofs anchored to an append-only log.
 
-Implements proof of concept Merkle OCSP responder and requesting client 
-
-
-Proofs by status:
-- `Good`: hash-chaining
-- `Revoked`: hash-chaining
-- `Unknown`: hash-chaining + date-based proof
+Standard OCSP requires the CA to sign every response individually, which is computationally expensive when using quantum safe signature algorithms, and creates a single point of trust. This prototype instead commits batches of certificate state into a combined Merkle tree at each epoch, signs only the tree root, and lets clients verify any status locally using inclusion or exclusion proofs.
 
 
-Sample Certificate:
+---
+
+## Prerequisites
+
+- Go 1.21 or later
+- Run `go mod download` before building
+
+---
+
+## Running
+
+Start the responder (server):
+
+```bash
+go run ./cmd/responder
+```
+
+Start the client (in a separate terminal):
+
+```bash
+go run ./cmd/client
+```
+
+The client posts two certificates (one good, one revoked), waits one epoch for them to be committed, then requests and verifies proofs for all three statuses — good, revoked, and unknown.
+
+---
+
+
+## Client example
+
 ```go
-// In OCSP a certificate is represented as the serial number
+// 1. Post certificates to the responder
 serial := big.NewInt(1111)
-date := time.Now() 
-```
+date   := time.Now()
+postCertificates([][]byte{serial.Bytes()})
 
-Client proof request to responder:
-```go
-response , _ := postGetResponseProof(serial, date)
-// POST to /proof/response
-```
+// 2. Wait for the next epoch to include them (default = 20s)
+time.Sleep(20 * time.Second)
 
-
-Verification:
-```go
+// 3. Fetch the latest signed landmark and the server public key
+lm,  _ := TestGetSignedLandmark()
 key, _ := getPublicKey()
-valid, err := ValidateLandmark(lm, key)
-valid, _ := ocsp.Verify(serverProof, signedLandmark, serial.Bytes(), date)
+
+// 4. Verify the landmark signature
+valid, _ := ValidateLandmark(lm, key)
+
+// 5. Request and verify a proof
+response := postGetResponseProof(serial, date)
+serialHash := sha256.Sum256(serial.Bytes())
+ok, err := ocsp.Verify(response, lm, serialHash[:], date)
+```
+---
+
+## How it works
+
+Each epoch the responder:
+
+1. Drains the queue of issued and revoked certificate hashes
+2. Builds a new Combined tree, a sorted Merkle tree for issuance and a sparse Merkle tree for revocation
+3. Commits `SHA256(combinedRoot + date)` to an append-only RFC 6962 log
+4. Creates a Landmark pointing to that log entry
+
+The CA signs only the log root (a `SignedLandmark`) and distributes it out-of-band. Clients chains the proof verification against that signed root. 
+
+```
+Client --serial + issueDate-->  Responder
+Client <---status + proof-----  Responder
+
+CA signs and publishes SignedLandmark out of band -->  Client uses it to verify proof
 ```
 
-Flow:
-```text
-Client -> Responder: serial + issueDate
-Responder -> Client: status + landmarkProof
+### Proof content by status
 
-CA -> issued / revoked certs
-Responder -> current + previous landmarks
-Landmark -> sorted MT + sparse MT
-```
+| Status | Issue proof | Revocation proof |
+|--------|-------------|---|
+| `Good` | Inclusion in sorted MT | Non-membership in sparse MT |
+| `Revoked` | Inclusion in sorted MT | Membership in sparse MT |
+| `Unknown` | Non-membership (exclusion) in sorted MT for the claimed epoch | - |
 
-Expected proof content:
-- `Good`: `memberIssueProof` + `nonMemberRevocationProof`
-- `Revoked`: `memberIssueProof` + `memberRevocationProof`
-- `Unknown`: `nonMemberIssueProof` for the claimed issue date
+For `Unknown`, the client also checks that the requested date falls within the epoch window covered by the landmark, so the responder cannot claim a certificate is unknown for an epoch it never covered.
 
-Note:
-- The sorted tree proves issuance
-- The sparse tree proves revocation against the newest epoch
-
+---
 
 ## Architecture
 
-```text
+```
 Controller
-├── Log (append-only, rfc6962)
-├── Revocation (Sparse Merkle Tree, persists across epochs)
+├── Log            (append-only, RFC 6962)
+├── Revocation     (Sparse Merkle Tree, persists across epochs)
 └── Landmarks []
     └── Landmark
         ├── LogIndex
         ├── Date
         └── Combined
-            ├── IssuedMT  (Sorted Merkle Tree, per epoch)
-            └── RevSMT    (Sparse Merkle Tree, cumulative)
+            ├── IssuedMT   (Sorted Merkle Tree, rebuilt each epoch)
+            └── RevSMT     (Sparse Merkle Tree, only stores root)
 ```
 
-Each epoch the controller:
-1. Drains the queued issued and revoked certificates
-2. Builds a new `Combined` tree (sorted MT + sparse MT)
-3. Commits the combined root + date to the append-only log
-4. Creates a new `Landmark` pointing to that log entry
+### Trees
 
+**Sorted Merkle Tree** (`IssuedMT`, [`txaty/go-merkletree`](https://github.com/txaty/go-merkletree))
+- Leaves are SHA-256 hashes of serial numbers, sorted before insertion
+- Sorted order enables non-membership (exclusion) proofs: to prove a hash is absent, prove its two sorted neighbours are present
+- Rebuilt from scratch each epoch
 
-## Endpoints
+**Sparse Merkle Tree** (`RevSMT`, [`celestiaorg/smt`](https://github.com/celestiaorg/smt))
+- Key and value are both the certificate hash, empty value signals non-membership
+- Persists across epochs, only the root is stored at epoch boundaries, leaves are pruned
+- Membership proves revocation, non-membership proves `Good` status
+
+**Append-only Log** ([`transparency-dev/merkle`](https://github.com/transparency-dev/merkle))
+- RFC 6962 hash tree
+- Each entry is `SHA256(combinedRoot + date)`
+- Log inclusion proofs let the client verify that a landmark root was genuinely committed to the log and covered by the signed head
+
+### Signed Landmark
+
+```
+SignedLandmark = RSA_Sign( SHA256(logRoot + logSize + frequency + date) )
+```
+
+The signed landmark is the only thing clients need to trust. All other data (proof paths, roots, timestamps) is verified against it.
+
+---
+
+## API Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/ping` | Health check |
 | GET | `/start` | Start the epoch ticker |
 | GET | `/stop` | Stop the epoch ticker |
-| POST | `/cert/add` | Queue issued certificates |
-| POST | `/cert/revoke` | Queue revoked certificates |
+| POST | `/cert/add` | Queue issued certificate hashes |
+| POST | `/cert/revoke` | Queue revoked certificate hashes |
 | GET | `/landmark` | Fetch the latest signed landmark |
-| GET | `/key` | Fetch the server's public key |
+| GET | `/key` | Fetch the server RSA public key |
 | POST | `/proof/response` | Request a status proof for a certificate |
 | POST | `/proof/hash` | Request a landmark proof by hash |
 
 
-## Running
-
-Start the responder (server):
-```bash
-go run ./cmd/responder
-```
-
-Start the client:
-```bash
-go run ./cmd/client
-```
-
-The default epoch frequency is 20 seconds. Certificates queued with `/cert/add` or `/cert/revoke` are committed at the next epoch.
+---
 
 
-## Signed Landmark
-
-The CA signs and distributes a `SignedLandmark` out of band following the frequency. It covers:
-
-```text
-SHA256(logRoot + logSize + frequency + date)
-```
-
-Clients use the `SignedLandmark` to anchor all proof verification without trusting the responder directly.
-
-
-## Trees
-
-**Sorted Merkle Tree** (`IssuedMT`)
-- Leaves are serial numbers, which are sorted before insertion
-- Supports membership and non-membership (exclusion) proofs
-- Rebuilt each epoch from the issued certificates
-- github.com/txaty/go-merkletree
-
-**Sparse Merkle Tree** (`RevSMT`)
-- Leaves are hashed, and inserted as a key-value pair 
-- Persists and grows across epochs. At a new epoch, only the tree-head value is stored, and the leaves pruned
-- Membership proves revocation; non-membership proves `Good` status
-- github.com/celestiaorg/smt
-
-**Append-only Log**
-- rfc6962 hash tree
-- Each entry commits `SHA256(combinedRoot + date)` for one epoch
-- Log proofs allow clients to verify a landmark is genuinely in the log
-- github.com/transparency-dev

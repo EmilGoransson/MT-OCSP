@@ -116,7 +116,7 @@ func (s *server) addCertificate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad data input", http.StatusBadRequest)
 		return
 	}
-	s.c.AddCertificates([][]byte{c})
+	s.c.AddCertificates(util.HashSerialList([][]byte{c}))
 }
 func (s *server) addCertificates(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("add-certs")
@@ -134,7 +134,7 @@ func (s *server) addCertificates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	log.Println("from cert add", certificates)
-	s.c.AddCertificates(certificates)
+	s.c.AddCertificates(util.HashSerialList(certificates))
 }
 func (s *server) addRevokedCertificates(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("rev-cert")
@@ -151,7 +151,7 @@ func (s *server) addRevokedCertificates(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "bad data input", http.StatusBadRequest)
 		return
 	}
-	s.c.AddRevokedCertificates(certificates)
+	s.c.AddRevokedCertificates(util.HashSerialList(certificates))
 }
 
 // TODO: make it date based
@@ -279,9 +279,12 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "no data", http.StatusBadRequest)
 		return
 	}
+
 	if err != nil {
 		panic(err)
 	}
+
+	hashedSerial := util.HashSerial(bodyStruct.SerialBytes)
 	// If the cert has not been added to a landmark yet
 	if s.c.CurrentLandmark.Date.Before(bodyStruct.Date) {
 		msg := fmt.Sprintf("cert not added to log yet. Last landmark: %s, Cert issuance: %s",
@@ -291,7 +294,7 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lm, err := s.c.GetLandmarkFromBytes(bodyStruct.SerialBytes)
+	lm, err := s.c.GetLandmarkFromBytes(hashedSerial)
 	if err != nil {
 		log.Fatalf("finding the landmark %v", err)
 	}
@@ -304,7 +307,7 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	res, err := ocsp.NewResponse(bodyStruct.SerialBytes, lm, s.c.CurrentLandmark)
+	res, err := ocsp.NewResponse(hashedSerial, lm, s.c.CurrentLandmark)
 	fmt.Println(res)
 	enc := gob.NewEncoder(w)
 	err = enc.Encode(res)

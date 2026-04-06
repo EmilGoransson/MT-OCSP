@@ -52,8 +52,6 @@ func ByteToDataBlock(b []byte) (mt.DataBlock, error) {
 	return block, nil
 }
 
-// TODO:
-
 func ValidateExclusion(b []byte, proof *ExclusionProofSorted, root []byte, c *mt.Config) (bool, error) {
 
 	if proof == nil {

@@ -110,3 +110,15 @@ func NewListRandomCertificatesWithKey(n int, pKey *rsa.PrivateKey) ([][]byte, er
 	}
 	return cList, nil
 }
+func HashSerial(serial []byte) []byte {
+	h := sha256.Sum256(serial)
+	return h[:]
+}
+
+func HashSerialList(serials [][]byte) [][]byte {
+	out := make([][]byte, 0, len(serials))
+	for _, serial := range serials {
+		out = append(out, HashSerial(serial))
+	}
+	return out
+}

@@ -18,8 +18,17 @@ import (
 
 const ip = "http://localhost:8080"
 
+func hashSerial(serial []byte) []byte {
+	h := sha256.Sum256(serial)
+	return h[:]
+}
+
 func main() {
-	// (Fake Cert)
+	demo()
+}
+
+func demo() {
+	// Creates 3 certificates
 	// Random big-int (serial), & create "valid" issue time
 	t := time.Now()
 	serialGood := big.NewInt(1111)
@@ -62,21 +71,21 @@ func main() {
 	}
 
 	fmt.Println("=====================================")
-	fmt.Println("======== VALID RESPONSES =========")
+	fmt.Println("========== VALID RESPONSES ==========")
 	fmt.Println("=====================================")
 
 	// Verifies the proof in
-	verifyGood, err := ocsp.Verify(responseGood, lm, serialGood.Bytes(), dateGood)
+	verifyGood, err := ocsp.Verify(responseGood, lm, hashSerial(serialGood.Bytes()), dateGood)
 	fmt.Printf("[Valid Response status=%s]  Proof valid:  %t\n", ocsp.Status(responseGood.Status), verifyGood)
 	if err != nil {
 		log.Println(err)
 	}
-	verifyRevoked, err := ocsp.Verify(responseRevoked, lm, serialRevoked.Bytes(), dateRevoked)
+	verifyRevoked, err := ocsp.Verify(responseRevoked, lm, hashSerial(serialRevoked.Bytes()), dateRevoked)
 	fmt.Printf("[Valid Response status=%s]  Proof valid:  %t\n", ocsp.Status(responseRevoked.Status), verifyRevoked)
 	if err != nil {
 		log.Println(err)
 	}
-	verifyUnknown, err := ocsp.Verify(responseUnknown, lm, serialUnknown.Bytes(), dateUnknown)
+	verifyUnknown, err := ocsp.Verify(responseUnknown, lm, hashSerial(serialUnknown.Bytes()), dateUnknown)
 	fmt.Printf("[Valid Response status=%s]  Proof valid:  %t\n", ocsp.Status(responseUnknown.Status), verifyUnknown)
 	if err != nil {
 		log.Println(err)
@@ -92,17 +101,17 @@ func main() {
 	responseUnknown.Status = ocsp.Good
 
 	// Verify the modified proof again
-	verifyGoodModified, err := ocsp.Verify(responseGood, lm, serialGood.Bytes(), dateGood)
+	verifyGoodModified, err := ocsp.Verify(responseGood, lm, hashSerial(serialGood.Bytes()), dateGood)
 	fmt.Printf("[Modified Response] status=%s: Proof valid:  %t\n", ocsp.Status(responseGood.Status), verifyGoodModified)
 	if err != nil {
 		log.Println(err)
 	}
-	verifyRevokedModified, err := ocsp.Verify(responseRevoked, lm, serialRevoked.Bytes(), dateRevoked)
+	verifyRevokedModified, err := ocsp.Verify(responseRevoked, lm, hashSerial(serialRevoked.Bytes()), dateRevoked)
 	fmt.Printf("[Modified Response] status=%s: Proof valid:  %t\n", ocsp.Status(responseRevoked.Status), verifyRevokedModified)
 	if err != nil {
 		log.Println(err)
 	}
-	verifyUnknownModified, err := ocsp.Verify(responseUnknown, lm, serialUnknown.Bytes(), dateUnknown)
+	verifyUnknownModified, err := ocsp.Verify(responseUnknown, lm, hashSerial(serialUnknown.Bytes()), dateUnknown)
 	fmt.Printf("[Modified Response] status=%s: Proof valid:  %t\n", ocsp.Status(responseUnknown.Status), verifyUnknownModified)
 	if err != nil {
 		log.Println(err)
