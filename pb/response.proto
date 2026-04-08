@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+package ocsp;
+
+option go_package = "merkle-ocsp/internal/ocsp/pb";
+
+import "google/protobuf/timestamp.proto";
+
+message MerkleProof {
+  repeated bytes siblings = 1;
+  uint32 path = 2;
+}
+
+message ExclusionProofSorted {
+  bytes        l_val   = 1;
+  bytes        r_val   = 2;
+  MerkleProof  l_proof = 3;
+  MerkleProof  r_proof = 4;
+}
+
+message SparseCompactMerkleProof {
+  repeated bytes side_nodes              = 1;
+  bytes          non_membership_leaf_data = 2;
+  bytes          bit_mask                = 3;
+  int32          num_side_nodes          = 4;
+  bytes          sibling_data            = 5;
+}
+message CombinedProof {
+  bytes                    issue_root      = 1;
+  bytes                    issue_epoch_rev = 2;
+  bytes                    rev_root        = 3;
+  bytes                    rev_epoch_issue = 4;
+  google.protobuf.Timestamp issue_date     = 5;
+  MerkleProof              issue_proof     = 6;
+  ExclusionProofSorted     non_issue_proof = 7;
+  SparseCompactMerkleProof rev_proof       = 8;
+}
+message LandmarkProof {
+  repeated bytes log_proof       = 1;
+  uint64         log_index       = 2;
+  repeated bytes newest_log_proof  = 3;
+  uint64         newest_log_index  = 4;
+  CombinedProof  combined_proof  = 5;
+}
+enum CertStatus {
+  GOOD    = 0;
+  REVOKED = 1;
+  UNKNOWN = 2;
+}
+message Response {
+  CertStatus               status    = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  LandmarkProof            proof     = 3;
+}
