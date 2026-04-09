@@ -58,14 +58,12 @@ func NewLandmark(l *tree.Log, c *tree.Combined) (*Landmark, error) {
 	// Commit curTree and data to the Log (can include Timestamp if needed)
 	date := c.Date
 
-	bDate, err := date.MarshalBinary()
-	if err != nil {
-		return nil, fmt.Errorf("marshaling date, err: %v", err)
-	}
+	bDate := MarshalTimestamp(date)
+
 	h := sha256.New()
 	h.Write(c.Root)
 	h.Write(bDate)
-	err = l.AppendToLog(h.Sum(nil))
+	err := l.AppendToLog(h.Sum(nil))
 	if err != nil {
 		return nil, fmt.Errorf("adding combinedTree to Log, %v", err)
 	}
@@ -93,7 +91,7 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash, f time.Durati
 	treeSizeHash := make([]byte, 8)
 	size := l.Log.Size()
 	binary.BigEndian.PutUint64(treeSizeHash, size)
-	timeHash, err := l.Date.MarshalBinary()
+	timeHash := MarshalTimestamp(l.Date)
 	// Convert freq to bytes
 	freqBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(freqBytes, uint64(f))

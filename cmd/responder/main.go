@@ -12,8 +12,11 @@ import (
 	"merkle-ocsp/internal/ocsp"
 	"merkle-ocsp/internal/responder"
 	"merkle-ocsp/internal/util"
+	"merkle-ocsp/pb"
 	"net/http"
 	"time"
+
+	"google.golang.org/protobuf/proto"
 )
 
 type server struct {
@@ -50,7 +53,7 @@ func main() {
 	http.HandleFunc("/test/cert/add", testAddCert)
 	http.HandleFunc("/test/cert/revoke", s.testRevokeCert)
 	http.HandleFunc("/test/proof/response", testNewResponse)
-	http.HandleFunc("/proof/response", s.newResponse)
+	http.HandleFunc("/proof/response", s.pbNewResponse)
 	http.HandleFunc("/key", s.key)
 
 	http.HandleFunc("/landmark", s.getSignedLandmark)
@@ -311,6 +314,72 @@ func (s *server) newResponse(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(res)
 	enc := gob.NewEncoder(w)
 	err = enc.Encode(res)
+	if err != nil {
+		http.Error(w, "failed to marshal response", http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("Found Landmark: ", lm)
+}
+func (s *server) pbNewResponse(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if len(s.c.Landmarks) <= 0 {
+		http.Error(w, "no landmarks issued", http.StatusInternalServerError)
+		return
+	}
+	var bodyStruct ocsp.Request
+
+	dec := gob.NewDecoder(r.Body)
+	err := dec.Decode(&bodyStruct)
+
+	if err != nil {
+		http.Error(w, "no data", http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		panic(err)
+	}
+
+	hashedSerial := util.HashSerial(bodyStruct.SerialBytes)
+	// If the cert has not been added to a landmark yet
+	if s.c.CurrentLandmark.Date.Before(bodyStruct.Date) {
+		msg := fmt.Sprintf("cert not added to log yet. Last landmark: %s, Cert issuance: %s",
+			s.c.CurrentLandmark.Date, bodyStruct.Date)
+
+		http.Error(w, msg, http.StatusNotFound)
+		return
+	}
+
+	lm, err := s.c.GetLandmarkFromBytes(hashedSerial)
+	if err != nil {
+		log.Fatalf("finding the landmark %v", err)
+	}
+
+	// If lm = nil, we try getting it from date (unknown status)
+	if lm == nil {
+		lm, err = s.c.GetLandmarkFromDate(bodyStruct.Date)
+		if err != nil {
+			log.Fatalf("finding lm using date")
+			return
+		}
+	}
+	res, err := ocsp.NewResponse(hashedSerial, lm, s.c.CurrentLandmark)
+	fmt.Println(res)
+
+	b, err := proto.Marshal(pb.ResponseToProto(res))
+	_, err = w.Write(b)
+	if err != nil {
+		log.Fatalf("writing data, %v", err)
+		return
+	}
+	/*
+		enc := gob.NewEncoder(w)
+		err = enc.Encode(res)
+	*/
+
 	if err != nil {
 		http.Error(w, "failed to marshal response", http.StatusInternalServerError)
 		return
