@@ -28,7 +28,7 @@ Start the client (in a separate terminal):
 go run ./cmd/client
 ```
 
-The client posts two certificates (one good, one revoked), waits one epoch for them to be committed, then requests and verifies proofs for all three statuses — good, revoked, and unknown.
+The client runs a demo, and posts two certificates (one good, one revoked), waits one epoch for them to be committed, then requests and verifies proofs for all three statuses; good, revoked, and unknown. It also simulate a possible status tampering, validating the tampered responses. 
 
 ---
 
