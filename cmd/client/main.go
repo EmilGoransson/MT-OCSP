@@ -12,8 +12,11 @@ import (
 	"log"
 	"math/big"
 	"merkle-ocsp/internal/ocsp"
+	"merkle-ocsp/pb"
 	"net/http"
 	"time"
+
+	"google.golang.org/protobuf/proto"
 )
 
 const ip = "http://localhost:8080"
@@ -54,9 +57,9 @@ func demo() {
 		panic(err)
 	}
 	// Fetches status of a certificate via OCSP
-	responseGood := postGetResponseProof(serialGood, dateGood)
-	responseRevoked := postGetResponseProof(serialRevoked, dateRevoked)
-	responseUnknown := postGetResponseProof(serialUnknown, dateUnknown)
+	responseGood := pbPostGetResponseProof(serialGood, dateGood)
+	responseRevoked := pbPostGetResponseProof(serialRevoked, dateRevoked)
+	responseUnknown := pbPostGetResponseProof(serialUnknown, dateUnknown)
 	// To check bad timestamp
 	//r.Proof.CombinedProof.IssueDate = time.Now()
 
@@ -126,10 +129,7 @@ func ValidateLandmark(l *ocsp.SignedLandmark, k *rsa.PublicKey) (bool, error) {
 	h := sha256.New()
 	logSize := make([]byte, 8)
 	binary.BigEndian.PutUint64(logSize, l.LogSize)
-	date, err := l.Date.MarshalBinary()
-	if err != nil {
-		return false, nil
-	}
+	date := ocsp.MarshalTimestamp(l.Date)
 	freqBytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(freqBytes, uint64(l.Frequency))
 	// Structure of the SignedLandmark
@@ -138,7 +138,7 @@ func ValidateLandmark(l *ocsp.SignedLandmark, k *rsa.PublicKey) (bool, error) {
 	h.Write(freqBytes)
 	h.Write(date)
 	s := h.Sum(nil)
-	err = rsa.VerifyPKCS1v15(k, crypto.SHA256, s, l.SignedHashData)
+	err := rsa.VerifyPKCS1v15(k, crypto.SHA256, s, l.SignedHashData)
 	if err != nil {
 		return false, err
 	}
@@ -191,6 +191,42 @@ func postGetResponseProof(serial *big.Int, date time.Time) *ocsp.Response {
 	log.Fatalf("got status, %s, %s ", response.Status, msg)
 	return nil
 }
+func pbPostGetResponseProof(serial *big.Int, date time.Time) *ocsp.Response {
+	body := ocsp.Request{
+		SerialBytes: serial.Bytes(),
+		Date:        date,
+	}
+	var buffer bytes.Buffer
+	enc := gob.NewEncoder(&buffer)
+	err := enc.Encode(body)
+	if err != nil {
+		panic(err)
+	}
+	response, err := http.Post(ip+"/proof/response", "application/protobuf", &buffer)
+	if err != nil {
+		return nil
+	}
+	if response.StatusCode == http.StatusOK {
+		/*	dec := gob.NewDecoder(response.Body)
+			err := dec.Decode(&lmBody)
+		*/
+		b, err := io.ReadAll(response.Body)
+		if err != nil {
+			log.Panicf("recoding data, %v", err)
+		}
+		var ocspPB pb.Response
+		err = proto.Unmarshal(b, &ocspPB)
+		ocspResponse, err := pb.ProtoToResponse(&ocspPB)
+		if err != nil {
+			log.Fatalf("going from proto to ocsp.response, %v", err)
+		}
+		return ocspResponse
+	}
+	msg, _ := io.ReadAll(response.Body)
+	log.Fatalf("got status, %s, %s ", response.Status, msg)
+	return nil
+}
+
 func postCertificates(c [][]byte) {
 
 	var buffer bytes.Buffer
@@ -224,7 +260,6 @@ func getPublicKey() (*rsa.PublicKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Decodes the public bytes send via tcp
 	dec := gob.NewDecoder(req.Body)
 	var pub = rsa.PublicKey{}
 	err = dec.Decode(&pub)

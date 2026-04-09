@@ -100,10 +100,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 	combinedRoot := hasher.Sum(nil)
 
 	// Add the date from the proof
-	dBytes, err := m.Proof.CombinedProof.IssueDate.MarshalBinary()
-	if err != nil {
-		return false, fmt.Errorf("marshalling date, %v", err)
-	}
+	dBytes := MarshalTimestamp(m.Proof.CombinedProof.IssueDate)
 	h := sha256.New()
 	h.Write(combinedRoot)
 	h.Write(dBytes)
@@ -124,8 +121,7 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 	// Verify the rev-side against the log
 
 	if m.Status != Unknown {
-		dBytes, err := sl.Date.MarshalBinary()
-
+		dBytes := MarshalTimestamp(sl.Date)
 		nHasher := sha256.New()
 		nHasher.Write(m.Proof.CombinedProof.RevEpochIssue)
 		nHasher.Write(m.Proof.CombinedProof.RevRoot)
