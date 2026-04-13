@@ -157,8 +157,7 @@ func ValidateLandmarkMLDSA(l *ocsp.SignedLandmark, k *mldsa44.PublicKey) bool {
 	h.Write(freqBytes)
 	h.Write(date)
 	s := h.Sum(nil)
-	status := mldsa44.Verify(k, s, nil, l.SignedHashData)
-	return status
+	return mldsa44.Verify(k, s, nil, l.SignedHashData)
 }
 
 func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
