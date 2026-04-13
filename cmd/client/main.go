@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cloudflare/circl/sign/mldsa/mldsa44"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -53,6 +54,7 @@ func demo() {
 
 	// Gets the latest landmark that includes the previously posted certificates (covers them all)
 	lm, err := TestGetSignedLandmark()
+
 	if err != nil {
 		panic(err)
 	}
@@ -64,14 +66,11 @@ func demo() {
 	//r.Proof.CombinedProof.IssueDate = time.Now()
 
 	// Fetch the servers public key
-	key, _ := getPublicKey()
-
+	key, _ := getPublicKeyMLDSA()
+	fmt.Println("key")
 	// ValidateLandmark the signature using the servers public key
-	valid, err := ValidateLandmark(lm, key)
+	valid := ValidateLandmarkMLDSA(lm, key)
 	fmt.Printf("[Valid Landmark] Validating signature, Valid: %t\n", valid)
-	if err != nil {
-		log.Println(err)
-	}
 
 	fmt.Println("=====================================")
 	fmt.Println("========== VALID RESPONSES ==========")
@@ -145,9 +144,25 @@ func ValidateLandmark(l *ocsp.SignedLandmark, k *rsa.PublicKey) (bool, error) {
 	return true, nil
 
 }
+func ValidateLandmarkMLDSA(l *ocsp.SignedLandmark, k *mldsa44.PublicKey) bool {
+	h := sha256.New()
+	logSize := make([]byte, 8)
+	binary.BigEndian.PutUint64(logSize, l.LogSize)
+	date := ocsp.MarshalTimestamp(l.Date)
+	freqBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(freqBytes, uint64(l.Frequency))
+	// Structure of the SignedLandmark
+	h.Write(l.LogRoot)
+	h.Write(logSize)
+	h.Write(freqBytes)
+	h.Write(date)
+	s := h.Sum(nil)
+	status := mldsa44.Verify(k, s, nil, l.SignedHashData)
+	return status
+}
 
 func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
-	response, err := http.Get(ip + "/landmark")
+	response, err := http.Get(ip + "/landmark/mldsa44")
 	if err != nil {
 		return nil, fmt.Errorf("getting response, %v", err)
 	}
@@ -242,7 +257,6 @@ func postCertificates(c [][]byte) {
 	defer response.Body.Close()
 }
 func postRevokedCertificates(c [][]byte) {
-
 	var buffer bytes.Buffer
 	enc := gob.NewEncoder(&buffer)
 	err := enc.Encode(c)
@@ -262,6 +276,19 @@ func getPublicKey() (*rsa.PublicKey, error) {
 	}
 	dec := gob.NewDecoder(req.Body)
 	var pub = rsa.PublicKey{}
+	err = dec.Decode(&pub)
+	if err != nil {
+		return nil, err
+	}
+	return &pub, nil
+}
+func getPublicKeyMLDSA() (*mldsa44.PublicKey, error) {
+	req, err := http.Get(ip + "/key/mldsa44")
+	if err != nil {
+		return nil, err
+	}
+	dec := gob.NewDecoder(req.Body)
+	var pub = mldsa44.PublicKey{}
 	err = dec.Decode(&pub)
 	if err != nil {
 		return nil, err
