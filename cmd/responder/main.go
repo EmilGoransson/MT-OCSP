@@ -16,16 +16,19 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cloudflare/circl/sign/mldsa/mldsa44"
 	"google.golang.org/protobuf/proto"
 )
 
 type server struct {
-	Key     *rsa.PrivateKey
-	c       *responder.Controller
-	latest  *ocsp.Landmark
-	signed  *ocsp.SignedLandmark
-	done    chan bool
-	chError chan error
+	Key          *rsa.PrivateKey
+	PubKeyMLDSA  *mldsa44.PublicKey
+	PrivKeyMLDSA *mldsa44.PrivateKey
+	c            *responder.Controller
+	latest       *ocsp.Landmark
+	signed       *ocsp.SignedLandmark
+	done         chan bool
+	chError      chan error
 }
 
 const port = ":8080"
@@ -36,13 +39,17 @@ func main() {
 	c, _ := responder.NewController()
 	c.SetFrequency(20 * time.Second)
 	key, _ := util.NewKeyPair(2048)
+	pub, priv, _ := mldsa44.GenerateKey(nil)
+
 	s := &server{
-		Key:     key,
-		c:       c,
-		done:    done,
-		chError: ch,
-		signed:  nil,
-		latest:  nil,
+		Key:          key,
+		PubKeyMLDSA:  pub,
+		PrivKeyMLDSA: priv,
+		c:            c,
+		done:         done,
+		chError:      ch,
+		signed:       nil,
+		latest:       nil,
 	}
 
 	http.HandleFunc("/ping", s.ping)
@@ -55,8 +62,11 @@ func main() {
 	http.HandleFunc("/test/proof/response", testNewResponse)
 	http.HandleFunc("/proof/response", s.pbNewResponse)
 	http.HandleFunc("/key", s.key)
+	http.HandleFunc("/key/mldsa44", s.keyMLDSA)
 
 	http.HandleFunc("/landmark", s.getSignedLandmark)
+	http.HandleFunc("/landmark/mldsa44", s.getSignedLandmarkMLDSA)
+
 	http.HandleFunc("/proof/hash", s.getLandmarkProof)
 	fmt.Println("[Server] Listening at: ", "localhost:", port)
 	s.c.StartPeriod(s.done, s.chError)
@@ -83,6 +93,15 @@ func (s *server) key(w http.ResponseWriter, _ *http.Request) {
 		return
 	}
 }
+func (s *server) keyMLDSA(w http.ResponseWriter, _ *http.Request) {
+	fmt.Println("key")
+	enc := gob.NewEncoder(w)
+	err := enc.Encode(s.PubKeyMLDSA)
+	if err != nil {
+		return
+	}
+}
+
 func (s *server) ping(w http.ResponseWriter, _ *http.Request) {
 	fmt.Println("ping req")
 	_, err := w.Write([]byte("ping from server"))
@@ -163,6 +182,25 @@ func (s *server) getSignedLandmark(w http.ResponseWriter, _ *http.Request) {
 		log.Println("signed-lm: ", s.signed)
 	}
 	signed, err := s.c.CurrentLandmark.NewSignedHead(s.Key, crypto.SHA256, s.c.Frequency)
+	if err != nil {
+		http.Error(w, "no landmark created", http.StatusInternalServerError)
+		return
+	}
+	s.signed = signed
+	enc := gob.NewEncoder(w)
+	err = enc.Encode(signed)
+	if err != nil {
+		http.Error(w, "encoding lm failed", http.StatusInternalServerError)
+	}
+	if err != nil {
+		return
+	}
+}
+func (s *server) getSignedLandmarkMLDSA(w http.ResponseWriter, _ *http.Request) {
+	if s.signed != nil {
+		log.Println("signed-lm: ", s.signed)
+	}
+	signed, err := s.c.CurrentLandmark.NewSignedHeadMLDSA(s.PrivKeyMLDSA, crypto.SHA256, s.c.Frequency)
 	if err != nil {
 		http.Error(w, "no landmark created", http.StatusInternalServerError)
 		return

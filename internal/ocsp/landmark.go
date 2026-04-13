@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/celestiaorg/smt"
+	"github.com/cloudflare/circl/sign/mldsa/mldsa44"
 	"github.com/txaty/go-merkletree"
 )
 
@@ -106,6 +107,53 @@ func (l *Landmark) NewSignedHead(k *rsa.PrivateKey, h crypto.Hash, f time.Durati
 	hasher.Write(timeHash)
 	hash := hasher.Sum(nil)
 	signedHash, err := k.Sign(rand.Reader, hash, h)
+	if err != nil {
+		return nil, fmt.Errorf("signing data, %v", err)
+	}
+	// Verify it
+	// err = rsa.VerifyPKCS1v15(&k.PublicKey, h, hash, signedHash)
+	// mt.Println(err)
+
+	return &SignedLandmark{
+		SignedHashData: signedHash,
+		LogRoot:        rootHash,
+		LogSize:        size,
+		Date:           l.Date,
+		Frequency:      f,
+	}, nil
+
+}
+
+// NewSignedHead hashes together data and signs the hash
+func (l *Landmark) NewSignedHeadMLDSA(k *mldsa44.PrivateKey, h crypto.Hash, f time.Duration) (*SignedLandmark, error) {
+	// Signs the hash of (RootHash + TreeSize + Date
+	if l == nil {
+		return nil, fmt.Errorf("landmark is nil")
+	}
+	hasher := h.New()
+	rootHash, err := l.Log.RootHash()
+	if err != nil {
+		return nil, fmt.Errorf("getting root hash, %v", err)
+	}
+	// Converts treesize to []byte
+	treeSizeHash := make([]byte, 8)
+	size := l.Log.Size()
+	binary.BigEndian.PutUint64(treeSizeHash, size)
+	timeHash := MarshalTimestamp(l.Date)
+	// Convert freq to bytes
+	freqBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(freqBytes, uint64(f))
+	if err != nil {
+		return nil, fmt.Errorf("marshaling time, %v", err)
+	}
+
+	// Write bytes and hash
+	hasher.Write(rootHash)
+	hasher.Write(treeSizeHash)
+	hasher.Write(freqBytes)
+	hasher.Write(timeHash)
+	hash := hasher.Sum(nil)
+	signedHash, err := k.Sign(rand.Reader, hash, nil)
 	if err != nil {
 		return nil, fmt.Errorf("signing data, %v", err)
 	}
