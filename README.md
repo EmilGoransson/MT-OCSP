@@ -123,7 +123,7 @@ Controller
 ### Signed Landmark
 
 ```
-SignedLandmark = RSA_Sign( SHA256(logRoot + logSize + frequency + date) )
+SignedLandmark = MLDSA_Sign( SHA256(logRoot + logSize + frequency + date) )
 ```
 
 The signed landmark is the only thing clients need to trust. All other data (proof paths, roots, timestamps) is verified against it.
@@ -141,6 +141,7 @@ The signed landmark is the only thing clients need to trust. All other data (pro
 | POST | `/cert/revoke` | Queue revoked certificate hashes |
 | GET | `/landmark` | Fetch the latest signed landmark |
 | GET | `/key` | Fetch the server RSA public key |
+| GET | `/key/mldsa` | Fetch the server mldsa public key |
 | POST | `/proof/response` | Request a status proof for a certificate |
 | POST | `/proof/hash` | Request a landmark proof by hash |
 
