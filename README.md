@@ -148,4 +148,9 @@ The signed landmark is the only thing clients need to trust. All other data (pro
 
 ---
 
+## Benchmarks
+`
+go test .\benchmark\ -v -bench="." -benchmem -count=1 
+`
 
+---

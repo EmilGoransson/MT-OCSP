@@ -13,6 +13,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// How many issued certificates that is added to the issue tree
+
+// How many % of certs that are revoked
+
 func buildLandmark(t testing.TB, issued int, revoked int) (*ocsp.Landmark, []byte) {
 	t.Helper()
 
@@ -49,7 +53,7 @@ func buildLandmark(t testing.TB, issued int, revoked int) (*ocsp.Landmark, []byt
 }
 
 func BenchmarkProofSizeIssuedCerts(b *testing.B) {
-	for _, n := range []int{10, 100, 1_000, 10_000, 100_000, 100_000_0} {
+	for _, n := range issuedCounts {
 		n := n
 		b.Run(fmt.Sprintf("issued=%d", n), func(b *testing.B) {
 			lm, target := buildLandmark(b, n, 0)
@@ -70,7 +74,7 @@ func BenchmarkProofSizeIssuedCerts(b *testing.B) {
 // BenchmarkProofSizeRevokedCerts benchmarks the "pure" size-growth of revoked. By passing a single issued cert
 // It avoids defaulting to status=unknown, which would remove the revoked side of the tree
 func BenchmarkProofSizeRevokedCerts(b *testing.B) {
-	for _, n := range []int{10, 100, 1_000, 10_000, 100_000} {
+	for _, n := range issuedCounts {
 		n := n
 		b.Run(fmt.Sprintf("revoked=%d", n), func(b *testing.B) {
 			lm, target := buildLandmark(b, 1, n)
@@ -90,12 +94,12 @@ func BenchmarkProofSizeRevokedCerts(b *testing.B) {
 }
 
 func BenchmarkProofSizeIssuedAndRevokedCerts(b *testing.B) {
-	for _, n := range []int{10, 100, 1_000, 10_000, 100_000, 100_000_00} {
-		for _, p := range []float64{.05, .01, .15} {
-			r := int(math.Round(float64(n) * p))
+	for _, n := range issuedCounts {
+		for _, p := range RevokedRatios {
+			r := int(math.Max(1, math.Round(float64(n)*p)))
 
 			n := n
-			b.Run(fmt.Sprintf("issued=%d, revoked=%d, revoked in %% = %.0f%%", n, r, p*100), func(b *testing.B) {
+			b.Run(fmt.Sprintf("issued=%d/revoked=%d/revoked%%=%.0f%%", n, r, p*100), func(b *testing.B) {
 				lm, target := buildLandmark(b, n, r)
 
 				b.ResetTimer()
