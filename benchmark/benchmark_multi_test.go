@@ -14,10 +14,11 @@ import (
 )
 
 // How many issued certificates that is added to the issue tree
+// var issuedCounts = []int{10, 100, 1_000, 10_000, 100_000, 100_000_0, 100_000_00, 100_000_000}
 var issuedCounts = []int{10, 100, 1_000, 10_000, 100_000}
 
 // How many % of certs that are revoked
-var RevokedRatios = []float64{.05, .01, .15}
+var RevokedRatios = []float64{.05, .1, .15}
 
 var EpochCounts = []int{1, 10, 50, 100, 500, 1000}
 
@@ -155,4 +156,61 @@ func BenchmarkClientVerify(b *testing.B) {
 		}
 	}
 
+}
+func BenchmarkTreeSigning(b *testing.B) {
+	_, priv, err := mldsa44.GenerateKey(nil)
+	if err != nil {
+		log.Fatalf("creating key,  %v", err)
+	}
+
+	for _, numIssued := range issuedCounts {
+		for _, numRevoked := range RevokedRatios {
+			tRevoked := int(math.Max(1, math.Round(float64(numIssued)*numRevoked)))
+			for _, numEpochs := range EpochCounts {
+				b.Run(fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, numRevoked*100, numEpochs), func(b *testing.B) {
+					landmarks, _ := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs)
+
+					newestLandmark := landmarks[len(landmarks)-1]
+
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						_, err := newestLandmark.NewSignedHeadMLDSA(priv, crypto.SHA256, time.Second*30)
+						if err != nil {
+							log.Fatalf("verifying response, %v", err)
+						}
+					}
+
+				})
+			}
+		}
+	}
+}
+func BenchmarkVerifyingSignature(b *testing.B) {
+	pub, priv, err := mldsa44.GenerateKey(nil)
+	if err != nil {
+		log.Fatalf("creating key,  %v", err)
+	}
+
+	for _, numIssued := range issuedCounts {
+		for _, numRevoked := range RevokedRatios {
+			tRevoked := int(math.Max(1, math.Round(float64(numIssued)*numRevoked)))
+			for _, numEpochs := range EpochCounts {
+				b.Run(fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, numRevoked*100, numEpochs), func(b *testing.B) {
+					landmarks, _ := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs)
+
+					newestLandmark := landmarks[len(landmarks)-1]
+					signed, err := newestLandmark.NewSignedHeadMLDSA(priv, crypto.SHA256, time.Second*30)
+					if err != nil {
+						log.Fatalf("verifying response, %v", err)
+					}
+
+					b.ResetTimer()
+					for i := 0; i < b.N; i++ {
+						_ = ocsp.ValidateLandmarkMLDSA(signed, pub)
+					}
+
+				})
+			}
+		}
+	}
 }

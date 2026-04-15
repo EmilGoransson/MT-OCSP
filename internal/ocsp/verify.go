@@ -2,11 +2,13 @@ package ocsp
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"merkle-ocsp/internal/tree"
 	"time"
 
 	"github.com/celestiaorg/smt"
+	"github.com/cloudflare/circl/sign/mldsa/mldsa44"
 	"github.com/transparency-dev/merkle/proof"
 	"github.com/transparency-dev/merkle/rfc6962"
 	mt "github.com/txaty/go-merkletree"
@@ -145,4 +147,20 @@ func Verify(m *Response, sl *SignedLandmark, hash []byte, date time.Time) (bool,
 		}
 	}
 	return true, nil
+}
+
+func ValidateLandmarkMLDSA(l *SignedLandmark, k *mldsa44.PublicKey) bool {
+	h := sha256.New()
+	logSize := make([]byte, 8)
+	binary.BigEndian.PutUint64(logSize, l.LogSize)
+	date := MarshalTimestamp(l.Date)
+	freqBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(freqBytes, uint64(l.Frequency))
+	// Structure of the SignedLandmark
+	h.Write(l.LogRoot)
+	h.Write(logSize)
+	h.Write(freqBytes)
+	h.Write(date)
+	s := h.Sum(nil)
+	return mldsa44.Verify(k, s, nil, l.SignedHashData)
 }
