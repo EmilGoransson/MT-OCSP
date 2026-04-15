@@ -69,7 +69,7 @@ func demo() {
 	key, _ := getPublicKeyMLDSA()
 	fmt.Println("key")
 	// ValidateLandmark the signature using the servers public key
-	valid := ValidateLandmarkMLDSA(lm, key)
+	valid := ocsp.ValidateLandmarkMLDSA(lm, key)
 	fmt.Printf("[Valid Landmark] Validating signature, Valid: %t\n", valid)
 
 	fmt.Println("=====================================")
@@ -144,22 +144,24 @@ func ValidateLandmark(l *ocsp.SignedLandmark, k *rsa.PublicKey) (bool, error) {
 	return true, nil
 
 }
-func ValidateLandmarkMLDSA(l *ocsp.SignedLandmark, k *mldsa44.PublicKey) bool {
-	h := sha256.New()
-	logSize := make([]byte, 8)
-	binary.BigEndian.PutUint64(logSize, l.LogSize)
-	date := ocsp.MarshalTimestamp(l.Date)
-	freqBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(freqBytes, uint64(l.Frequency))
-	// Structure of the SignedLandmark
-	h.Write(l.LogRoot)
-	h.Write(logSize)
-	h.Write(freqBytes)
-	h.Write(date)
-	s := h.Sum(nil)
-	return mldsa44.Verify(k, s, nil, l.SignedHashData)
-}
 
+/*
+	func ValidateLandmarkMLDSA(l *ocsp.SignedLandmark, k *mldsa44.PublicKey) bool {
+		h := sha256.New()
+		logSize := make([]byte, 8)
+		binary.BigEndian.PutUint64(logSize, l.LogSize)
+		date := ocsp.MarshalTimestamp(l.Date)
+		freqBytes := make([]byte, 8)
+		binary.BigEndian.PutUint64(freqBytes, uint64(l.Frequency))
+		// Structure of the SignedLandmark
+		h.Write(l.LogRoot)
+		h.Write(logSize)
+		h.Write(freqBytes)
+		h.Write(date)
+		s := h.Sum(nil)
+		return mldsa44.Verify(k, s, nil, l.SignedHashData)
+	}
+*/
 func TestGetSignedLandmark() (*ocsp.SignedLandmark, error) {
 	response, err := http.Get(ip + "/landmark/mldsa44")
 	if err != nil {
