@@ -284,15 +284,15 @@ func (t *Sorted) NewNonMemberProof(hash []byte) (*ExclusionProofSorted, error) {
 	return ret, nil
 }
 
-// // TEMP solution, if implemented correctly can be o(logn) prob
 func (t *Sorted) has(hash []byte) (bool, error) {
 	leaves := t.MerkleTree.Leaves
-	for _, leaf := range leaves {
-		if bytes.Compare(hash, leaf) == 0 {
-			return true, nil
-		}
+	index := sort.Search(len(leaves), func(i int) bool {
+		return bytes.Compare(leaves[i], hash) >= 0
+	})
+	if index >= len(leaves) {
+		return false, nil
 	}
-	return false, nil
+	return bytes.Equal(leaves[index], hash), nil
 }
 
 // NewSorted Takes [][]byte slices as input and converts it to []Datablock
