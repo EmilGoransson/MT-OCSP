@@ -8,3 +8,5 @@
 
 /.gocache
 qodana.yaml
+*.txt
+*.csv

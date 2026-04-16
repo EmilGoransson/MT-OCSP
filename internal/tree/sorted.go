@@ -301,13 +301,6 @@ func NewSorted(byteBlocks [][]byte) (*Sorted, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Sort the blocks before inserting
-	sort.Slice(blocks, func(i, j int) bool {
-		dataI, _ := blocks[i].Serialize()
-		dataJ, _ := blocks[j].Serialize()
-		return bytes.Compare(dataI[:], dataJ[:]) < 0
-	})
 	// If there is no blocks?
 	// If there is a single block, do what?
 	// TOOD: make sure to verify that this does not break the proofs
@@ -322,14 +315,21 @@ func NewSorted(byteBlocks [][]byte) (*Sorted, error) {
 		}
 		blocks = append(blocks, emptyBlock)
 		blocks = append(blocks, emptyBlock2)
-	}
-	if len(blocks) == 1 {
+	} else if len(blocks) == 1 {
 		emptyBlock, err := ByteToDataBlock([]byte{})
 		if err != nil {
 			return nil, err
 		}
 		blocks = append(blocks, emptyBlock)
 	}
+
+	// Sort the blocks before inserting
+	sort.Slice(blocks, func(i, j int) bool {
+		dataI, _ := blocks[i].Serialize()
+		dataJ, _ := blocks[j].Serialize()
+		return bytes.Compare(dataI[:], dataJ[:]) < 0
+	})
+
 	// the number of data blocks must be greater than 1
 	mtTree, err := mt.New(DefaultMerkleConfig, blocks)
 	if err != nil {
