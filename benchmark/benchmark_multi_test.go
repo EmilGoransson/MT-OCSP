@@ -19,7 +19,7 @@ import (
 )
 
 // How many issued certificates that is added to the issue tree
-var issuedCounts = []int{10, 100, 1_000, 10_000, 100_000, 100_000_0}
+var issuedCounts = []int{10, 100, 100_0, 100_00, 100_000, 100_000_0}
 
 // How many % of certs that are revoked
 var RevokedRatios = []float64{0.01, .05, .15}
@@ -103,7 +103,7 @@ func runProofSizeBenchmark(b *testing.B, status ocsp.Status) {
 	b.Helper()
 	for _, numIssued := range issuedCounts {
 		for _, revokedRatio := range RevokedRatios {
-			tRevoked := int(math.Round(float64(numIssued) * revokedRatio))
+			tRevoked := int(max(1, math.Round(float64(numIssued)*revokedRatio)))
 			for _, numEpochs := range EpochCounts {
 				name := fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, revokedRatio*100, numEpochs)
 				b.Run(name, func(b *testing.B) {
@@ -164,7 +164,7 @@ func runVerifyBenchmark(b *testing.B, status ocsp.Status) {
 	}
 	for _, numIssued := range issuedCounts {
 		for _, revokedRatio := range RevokedRatios {
-			tRevoked := int(math.Round(float64(numIssued) * revokedRatio))
+			tRevoked := int(max(1, math.Round(float64(numIssued)*revokedRatio)))
 			for _, numEpochs := range EpochCounts {
 				name := fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, revokedRatio*100, numEpochs)
 				b.Run(name, func(b *testing.B) {
@@ -234,13 +234,16 @@ func BenchmarkVerifyRevoked(b *testing.B) {
 }
 func BenchmarkVerifyUnknown(b *testing.B) {
 	runVerifyBenchmark(b, ocsp.Unknown)
-}
+} /*
+
+
 func BenchmarkVerifyGoodForgedToRevoked(b *testing.B) {
 	runVerifyBenchmark(b, ocsp.Unknown)
 }
 func BenchmarkVerifyGoodForgedToUnknown(b *testing.B) {
 	runVerifyBenchmark(b, ocsp.Unknown)
 }
+*/
 
 // BenchClientVerify benchmarks the verify function, it does not include the signature verification
 
