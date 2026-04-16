@@ -8,3 +8,4 @@
 
 /.gocache
 qodana.yaml
+*.txt
