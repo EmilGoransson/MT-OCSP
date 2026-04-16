@@ -114,9 +114,6 @@ func runProofSizeBenchmark(b *testing.B, status ocsp.Status) {
 						log.Fatalf("finding hash in landmarks")
 					}
 
-					if err != nil {
-						log.Fatalf("finding landmark from bytes")
-					}
 					// Unknown case (Since unknwon dont have a "real" date (since it benchmark), we simply take the date of the first lm
 					if issueLandmark == nil {
 
