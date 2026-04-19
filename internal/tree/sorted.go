@@ -199,33 +199,23 @@ func (t *Sorted) ValidateExclusion(b []byte, proof *ExclusionProofSorted) (bool,
 }
 
 func (t *Sorted) NewNonMemberProof(hash []byte) (*ExclusionProofSorted, error) {
-	block, err := ByteToDataBlock(hash)
-	if err != nil {
-		return nil, err
-	}
 	ret := &ExclusionProofSorted{
 		LVal:   nil,
 		RVal:   nil,
 		LProof: nil,
 		RProof: nil,
 	}
-	// Get the leaves
 	leaves := t.Leaves
-	if len(t.Leaves) == 0 {
+	if len(leaves) == 0 {
 		return nil, fmt.Errorf("tree is empty")
 	}
-	var strings []string
-	for _, leave := range leaves {
-		strings = append(strings, string(leave))
-	}
 
-	serialized, _ := block.Serialize()
-	s := string(serialized)
-	// This should find the index to insert at, however, for some reason the leaves are hashed in issue-tree?
-	index := sort.SearchStrings(strings, s)
+	index := sort.Search(len(leaves), func(i int) bool {
+		return bytes.Compare(leaves[i], hash) >= 0
+	})
 	// Now handle cases
 	if index < 0 || index > len(leaves) {
-		return nil, err
+		return nil, fmt.Errorf("index out of bounds")
 	}
 	// TODO: test with large util if its inserted at correct index
 	// What happens if there is a single util in the issue tree?
