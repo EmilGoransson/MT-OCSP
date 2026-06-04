@@ -1,9 +1,11 @@
 package benchmark
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/sha256"
 	"encoding/binary"
+	"encoding/gob"
 	"fmt"
 	"log"
 	"math"
@@ -18,13 +20,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// How many issued certificates that is added to the issue tree
-var issuedCounts = []int{10, 100, 100_0, 100_00, 100_000, 100_000_0}
+var issuedCounts = []int{10, 100, 100_0, 100_00, 100_000, 100_000_0, 100_000_00, 100_000_000}
 
 // How many % of certs that are revoked
-var RevokedRatios = []float64{0.01, .05, .15}
+var RevokedRatios = []float64{0, 0.01, 0.05, 0.1}
 
-var EpochCounts = []int{1, 100, 1000}
+var EpochCounts = []int{1, 10, 100, 1000}
 
 func buildMultiEpochLandmarks(t testing.TB, totalIssued, totalRevoked, numEpochs int, status ocsp.Status) ([]*ocsp.Landmark, []byte) {
 	t.Helper()
@@ -41,7 +42,6 @@ func buildMultiEpochLandmarks(t testing.TB, totalIssued, totalRevoked, numEpochs
 		allIssuedHashes[i] = hashUint64(uint64(i + 1))
 	}
 
-	// Good skip hash[0] so the target cert is not revoked
 	revokedStart := 0
 	if status == ocsp.Good {
 		revokedStart = 1
@@ -98,7 +98,6 @@ func buildMultiEpochLandmarks(t testing.TB, totalIssued, totalRevoked, numEpochs
 
 	return landmarks, target
 }
-
 func runProofSizeBenchmark(b *testing.B, status ocsp.Status) {
 	b.Helper()
 	for _, numIssued := range issuedCounts {
@@ -106,41 +105,36 @@ func runProofSizeBenchmark(b *testing.B, status ocsp.Status) {
 			tRevoked := int(max(1, math.Round(float64(numIssued)*revokedRatio)))
 			for _, numEpochs := range EpochCounts {
 				name := fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, revokedRatio*100, numEpochs)
+
+				landmarks, target := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs, status)
+				var issueLandmark *ocsp.Landmark
+				issueLandmark, err := getLandmarkFromBytes(target, landmarks)
+				if err != nil {
+					log.Fatalf("finding hash in landmarks")
+				}
+				// Unknown case (Since unknwon dont have a "real" date (since it benchmark), we simply take the date of the first lm
+				if issueLandmark == nil {
+					fakeFrequency := time.Hour
+					fakeDate := landmarks[0].Date.Add(-time.Minute)
+					issueLandmark, err = getLandmarkFromDate(fakeDate, fakeFrequency, landmarks)
+					if err != nil {
+						log.Fatalf("landmark from date")
+					}
+				}
+				newestLandmark := landmarks[len(landmarks)-1]
+				sampleResp, err := ocsp.NewResponse(target, issueLandmark, newestLandmark)
+				if sampleResp.Status != int8(status) {
+					log.Fatalf("status mismatch %d != %d", sampleResp.Status, int8(status))
+				}
+				if err != nil {
+					b.Fatal(err)
+				}
+				samplePbResp := responseToProto(b, sampleResp)
+				respSize := float64(protoSize(b, samplePbResp))
 				b.Run(name, func(b *testing.B) {
-					landmarks, target := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs, status)
-					var issueLandmark *ocsp.Landmark
-					issueLandmark, err := getLandmarkFromBytes(target, landmarks)
-					if err != nil {
-						log.Fatalf("finding hash in landmarks")
-					}
-
-					// Unknown case (Since unknwon dont have a "real" date (since it benchmark), we simply take the date of the first lm
-					if issueLandmark == nil {
-
-						fakeFrequency := time.Hour
-						fakeDate := landmarks[0].Date.Add(-time.Minute)
-
-						issueLandmark, err = getLandmarkFromDate(fakeDate, fakeFrequency, landmarks)
-						if err != nil {
-							log.Fatalf("landmark from date")
-						}
-					}
-
-					newestLandmark := landmarks[len(landmarks)-1]
-
-					sampleResp, err := ocsp.NewResponse(target, issueLandmark, newestLandmark)
-					if sampleResp.Status != int8(status) {
-						log.Fatalf("status mismatch %d != %d", sampleResp.Status, int8(status))
-					}
-					if err != nil {
-						b.Fatal(err)
-					}
-					samplePbResp := responseToProto(b, sampleResp)
-					respSize := float64(protoSize(b, samplePbResp))
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
-						// Now we are ONLY benchmarking the speed of NewResponse
-						_, err := ocsp.NewResponse(target, issueLandmark, newestLandmark)
+						_, err = ocsp.NewResponse(target, issueLandmark, newestLandmark)
 						if err != nil {
 							b.Fatal(err)
 						}
@@ -151,7 +145,6 @@ func runProofSizeBenchmark(b *testing.B, status ocsp.Status) {
 		}
 	}
 }
-
 func runVerifyBenchmark(b *testing.B, status ocsp.Status) {
 	b.Helper()
 	_, privateKey, err := mldsa44.GenerateKey(nil)
@@ -164,43 +157,50 @@ func runVerifyBenchmark(b *testing.B, status ocsp.Status) {
 			tRevoked := int(max(1, math.Round(float64(numIssued)*revokedRatio)))
 			for _, numEpochs := range EpochCounts {
 				name := fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, revokedRatio*100, numEpochs)
-				b.Run(name, func(b *testing.B) {
-					var lm *ocsp.Landmark
-					date := time.Now()
-					landmarks, target := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs, status)
-					lm, err := getLandmarkFromBytes(target, landmarks)
+
+				var lm *ocsp.Landmark
+				landmarks, target := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs, status)
+
+				lm, err = getLandmarkFromBytes(target, landmarks)
+				if err != nil {
+					log.Fatalf("finding landmark from bytes")
+				}
+
+				// Unknown case
+				if lm == nil {
+					fakeFrequency := time.Hour * 4
+					fakeDate := landmarks[0].Date.Add(-time.Minute)
+
+					lm, err = getLandmarkFromDate(fakeDate, fakeFrequency, landmarks)
 					if err != nil {
-						log.Fatalf("finding landmark from bytes")
+						log.Fatalf("landmark from date")
 					}
-					// Unknown case (Since unknwon dont have a "real" date (since it benchmark), we simply take the date of the first lm
-					if lm == nil {
+				}
 
-						fakeFrequency := time.Hour
-						fakeDate := landmarks[0].Date.Add(-time.Minute)
+				newestLandmark := landmarks[len(landmarks)-1]
 
-						lm, err = getLandmarkFromDate(fakeDate, fakeFrequency, landmarks)
-						if err != nil {
-							log.Fatalf("landmark from date")
-						}
-					}
-					newestLandmark := landmarks[len(landmarks)-1]
+				b.Run(name, func(b *testing.B) {
+
 					signedLandmark, err := newestLandmark.NewSignedHeadMLDSA(privateKey, crypto.SHA256, time.Second*30)
 					if err != nil {
 						b.Fatal(err)
 					}
-
 					resp, err := ocsp.NewResponse(target, lm, newestLandmark)
-					if resp.Status != int8(status) {
-						log.Fatalf("status mismatch %d != %d", resp.Status, int8(status))
+					if err != nil {
+						b.Fatal(err)
 					}
-					b.ResetTimer()
+					if resp.Status != int8(status) {
+						b.Fatalf("status mismatch %d != %d", resp.Status, int8(status))
+					}
+					date := lm.CTree.Date.Add(-time.Second)
+					b.ResetTimer() // ← timing starts here
 					for i := 0; i < b.N; i++ {
 						ok, err := ocsp.Verify(resp, signedLandmark, target, date)
 						if err != nil {
-							log.Fatalf("verifying response, %v", err)
+							b.Fatalf("verifying response, %v", err)
 						}
-						if ok != true {
-							log.Fatalf("bad response, ok = %t", ok)
+						if !ok {
+							b.Fatalf("bad response, ok = %t", ok)
 						}
 					}
 				})
@@ -231,31 +231,79 @@ func BenchmarkVerifyRevoked(b *testing.B) {
 }
 func BenchmarkVerifyUnknown(b *testing.B) {
 	runVerifyBenchmark(b, ocsp.Unknown)
-} /*
-
-
-func BenchmarkVerifyGoodForgedToRevoked(b *testing.B) {
-	runVerifyBenchmark(b, ocsp.Unknown)
 }
-func BenchmarkVerifyGoodForgedToUnknown(b *testing.B) {
-	runVerifyBenchmark(b, ocsp.Unknown)
+
+var msgSizes = []int{
+	16,
+	32,
+	64,
+	128,
+	256,
+	512,
 }
-*/
 
-// BenchClientVerify benchmarks the verify function, it does not include the signature verification
+func BenchmarkSignMLDSA44(b *testing.B) {
+	_, priv, _ := mldsa44.GenerateKey(nil)
+	sig := make([]byte, mldsa44.SignatureSize)
 
-// Benchmark Revoked status proof growth based on Issued / Revoked / Epoch
-// Benchmark Unknown staus proof growth based on Issued / Revoked / Epoch
+	for _, size := range msgSizes {
+		msg := make([]byte, size)
+		b.Run(fmt.Sprintf("msg=%dB", size), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				if err := mldsa44.SignTo(priv, msg, nil, true, sig); err != nil {
+					b.Fatalf("signing failed: %v", err)
+				}
+			}
+		})
+	}
+}
 
-// Benchmark Good status verify performance
-// Benchmark Revoked status verify performance
-// Benchmark Unknown status verify performance
+func BenchmarkVerifyMLDSA44(b *testing.B) {
+	pub, priv, _ := mldsa44.GenerateKey(nil)
+	sig := make([]byte, mldsa44.SignatureSize)
 
-// Benchmark "Bad" status verify performance?
+	for _, size := range msgSizes {
+		msg := make([]byte, size)
+		if err := mldsa44.SignTo(priv, msg, nil, true, sig); err != nil {
+			b.Fatalf("setup signing failed: %v", err)
+		}
+		b.Run(fmt.Sprintf("msg=%dB", size), func(b *testing.B) {
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				mldsa44.Verify(pub, msg, nil, sig)
+			}
+		})
+	}
+}
+func BenchmarkLandmarkSize(b *testing.B) {
+	_, privateKey, _ := mldsa44.GenerateKey(nil)
+	for _, numIssued := range issuedCounts {
+		for _, revokedRatio := range RevokedRatios {
+			tRevoked := int(max(1, math.Round(float64(numIssued)*revokedRatio)))
+			for _, numEpochs := range EpochCounts {
+				lm, _ := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs, ocsp.Good)
+				name := fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, revokedRatio*100, numEpochs)
 
-// Benchmark Good response creation performance
-// Benchmark Revoked response creation performance
-// Benchmark Unknown response creation performance
+				b.Run(name, func(b *testing.B) {
+					b.ResetTimer()
+					var respSize float64
+					for i := 0; i < b.N; i++ {
+						signedLm, err := lm[0].NewSignedHeadMLDSA(privateKey, crypto.SHA256, time.Hour)
+						var buf bytes.Buffer
+						enc := gob.NewEncoder(&buf)
+						err = enc.Encode(signedLm)
+						if err != nil {
+							fmt.Errorf("encoding")
+						}
+						respSize = float64(buf.Len())
+					}
+					b.ReportMetric(respSize, "bytes/response")
+				})
+			}
+		}
+	}
+}
 
 func hashUint64(v uint64) []byte {
 	var serial [8]byte
@@ -285,7 +333,6 @@ func responseToProto(t testing.TB, resp *ocsp.Response) *ocspPb.Response {
 }
 
 func getLandmarkFromBytes(h []byte, landmarks []*ocsp.Landmark) (*ocsp.Landmark, error) {
-	// For each landmark,
 	for _, lm := range landmarks {
 		if inTree, err := lm.CTree.Has(h); inTree {
 			if err != nil {
