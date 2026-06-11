@@ -34,9 +34,6 @@ func buildMultiEpochLandmarks(t testing.TB, totalIssued, totalRevoked, numEpochs
 		t.Fatalf("creating new log: %v", err)
 	}
 
-	issuedPerEpoch := totalIssued / numEpochs
-	revokedPerEpoch := totalRevoked / numEpochs
-
 	allIssuedHashes := make([][]byte, totalIssued)
 	for i := range allIssuedHashes {
 		allIssuedHashes[i] = hashUint64(uint64(i + 1))
@@ -55,16 +52,8 @@ func buildMultiEpochLandmarks(t testing.TB, totalIssued, totalRevoked, numEpochs
 	landmarks := make([]*ocsp.Landmark, 0, numEpochs)
 
 	for j := 0; j < numEpochs; j++ {
-		startIssue := j * issuedPerEpoch
-		endIssue := startIssue + issuedPerEpoch
-		if j == numEpochs-1 {
-			endIssue = totalIssued
-		}
-		startRev := j * revokedPerEpoch
-		endRev := startRev + revokedPerEpoch
-		if j == numEpochs-1 {
-			endRev = totalRevoked
-		}
+		startIssue, endIssue := epochRange(totalIssued, numEpochs, j)
+		startRev, endRev := epochRange(totalRevoked, numEpochs, j)
 
 		epochIssued := allIssuedHashes[startIssue:endIssue]
 		epochRevoked := allRevokedHashes[startRev:endRev]
@@ -91,6 +80,9 @@ func buildMultiEpochLandmarks(t testing.TB, totalIssued, totalRevoked, numEpochs
 	case ocsp.Good:
 		target = allIssuedHashes[0]
 	case ocsp.Revoked:
+		if len(allRevokedHashes) == 0 {
+			t.Fatalf("revoked status benchmark needs at least one revoked certificate")
+		}
 		target = allRevokedHashes[0]
 	case ocsp.Unknown:
 		target = hashUint64(math.MaxUint64)
@@ -98,39 +90,43 @@ func buildMultiEpochLandmarks(t testing.TB, totalIssued, totalRevoked, numEpochs
 
 	return landmarks, target
 }
+
 func runProofSizeBenchmark(b *testing.B, status ocsp.Status) {
 	b.Helper()
 	for _, numIssued := range issuedCounts {
 		for _, revokedRatio := range RevokedRatios {
-			tRevoked := int(max(1, math.Round(float64(numIssued)*revokedRatio)))
+			tRevoked := revokedCount(numIssued, revokedRatio)
 			for _, numEpochs := range EpochCounts {
-				name := fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, revokedRatio*100, numEpochs)
+				name := benchmarkCaseName(numIssued, tRevoked, revokedRatio, numEpochs)
+				if status == ocsp.Revoked && tRevoked == 0 {
+					b.Run(name, func(b *testing.B) { skipZeroRevokedStatus(b, status, tRevoked) })
+					continue
+				}
 
 				landmarks, target := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs, status)
-				var issueLandmark *ocsp.Landmark
 				issueLandmark, err := getLandmarkFromBytes(target, landmarks)
 				if err != nil {
-					log.Fatalf("finding hash in landmarks")
+					b.Fatalf("finding hash in landmarks: %v", err)
 				}
-				// Unknown case (Since unknwon dont have a "real" date (since it benchmark), we simply take the date of the first lm
 				if issueLandmark == nil {
 					fakeFrequency := time.Hour
 					fakeDate := landmarks[0].Date.Add(-time.Minute)
 					issueLandmark, err = getLandmarkFromDate(fakeDate, fakeFrequency, landmarks)
 					if err != nil {
-						log.Fatalf("landmark from date")
+						b.Fatalf("landmark from date: %v", err)
 					}
 				}
 				newestLandmark := landmarks[len(landmarks)-1]
 				sampleResp, err := ocsp.NewResponse(target, issueLandmark, newestLandmark)
-				if sampleResp.Status != int8(status) {
-					log.Fatalf("status mismatch %d != %d", sampleResp.Status, int8(status))
-				}
 				if err != nil {
 					b.Fatal(err)
 				}
+				if sampleResp.Status != int8(status) {
+					b.Fatalf("status mismatch %d != %d", sampleResp.Status, int8(status))
+				}
 				samplePbResp := responseToProto(b, sampleResp)
 				respSize := float64(protoSize(b, samplePbResp))
+
 				b.Run(name, func(b *testing.B) {
 					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
@@ -145,42 +141,39 @@ func runProofSizeBenchmark(b *testing.B, status ocsp.Status) {
 		}
 	}
 }
+
 func runVerifyBenchmark(b *testing.B, status ocsp.Status) {
 	b.Helper()
 	_, privateKey, err := mldsa44.GenerateKey(nil)
-
 	if err != nil {
 		log.Fatalf("creating key,  %v", err)
 	}
 	for _, numIssued := range issuedCounts {
 		for _, revokedRatio := range RevokedRatios {
-			tRevoked := int(max(1, math.Round(float64(numIssued)*revokedRatio)))
+			tRevoked := revokedCount(numIssued, revokedRatio)
 			for _, numEpochs := range EpochCounts {
-				name := fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, revokedRatio*100, numEpochs)
-
-				var lm *ocsp.Landmark
-				landmarks, target := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs, status)
-
-				lm, err = getLandmarkFromBytes(target, landmarks)
-				if err != nil {
-					log.Fatalf("finding landmark from bytes")
+				name := benchmarkCaseName(numIssued, tRevoked, revokedRatio, numEpochs)
+				if status == ocsp.Revoked && tRevoked == 0 {
+					b.Run(name, func(b *testing.B) { skipZeroRevokedStatus(b, status, tRevoked) })
+					continue
 				}
 
-				// Unknown case
+				landmarks, target := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs, status)
+				lm, err := getLandmarkFromBytes(target, landmarks)
+				if err != nil {
+					b.Fatalf("finding landmark from bytes: %v", err)
+				}
 				if lm == nil {
 					fakeFrequency := time.Hour * 4
 					fakeDate := landmarks[0].Date.Add(-time.Minute)
-
 					lm, err = getLandmarkFromDate(fakeDate, fakeFrequency, landmarks)
 					if err != nil {
-						log.Fatalf("landmark from date")
+						b.Fatalf("landmark from date: %v", err)
 					}
 				}
-
 				newestLandmark := landmarks[len(landmarks)-1]
 
 				b.Run(name, func(b *testing.B) {
-
 					signedLandmark, err := newestLandmark.NewSignedHeadMLDSA(privateKey, crypto.SHA256, time.Second*30)
 					if err != nil {
 						b.Fatal(err)
@@ -193,7 +186,7 @@ func runVerifyBenchmark(b *testing.B, status ocsp.Status) {
 						b.Fatalf("status mismatch %d != %d", resp.Status, int8(status))
 					}
 					date := lm.CTree.Date.Add(-time.Second)
-					b.ResetTimer() // ← timing starts here
+					b.ResetTimer()
 					for i := 0; i < b.N; i++ {
 						ok, err := ocsp.Verify(resp, signedLandmark, target, date)
 						if err != nil {
@@ -215,11 +208,9 @@ func BenchmarkGenerateProofSizeGood(b *testing.B) {
 }
 func BenchmarkGenerateProofSizeRevoked(b *testing.B) {
 	runProofSizeBenchmark(b, ocsp.Revoked)
-
 }
 func BenchmarkGenerateProofSizeUnknown(b *testing.B) {
 	runProofSizeBenchmark(b, ocsp.Unknown)
-
 }
 
 // Client benchmarks
@@ -276,14 +267,15 @@ func BenchmarkVerifyMLDSA44(b *testing.B) {
 		})
 	}
 }
+
 func BenchmarkLandmarkSize(b *testing.B) {
 	_, privateKey, _ := mldsa44.GenerateKey(nil)
 	for _, numIssued := range issuedCounts {
 		for _, revokedRatio := range RevokedRatios {
-			tRevoked := int(max(1, math.Round(float64(numIssued)*revokedRatio)))
+			tRevoked := revokedCount(numIssued, revokedRatio)
 			for _, numEpochs := range EpochCounts {
+				name := benchmarkCaseName(numIssued, tRevoked, revokedRatio, numEpochs)
 				lm, _ := buildMultiEpochLandmarks(b, numIssued, tRevoked, numEpochs, ocsp.Good)
-				name := fmt.Sprintf("issued=%d/revoked=%.0f%%/epochs=%d", numIssued, revokedRatio*100, numEpochs)
 
 				b.Run(name, func(b *testing.B) {
 					b.ResetTimer()
@@ -310,6 +302,25 @@ func hashUint64(v uint64) []byte {
 	binary.BigEndian.PutUint64(serial[:], v)
 	sum := sha256.Sum256(serial[:])
 	return sum[:]
+}
+
+func revokedCount(numIssued int, revokedRatio float64) int {
+	return int(math.Round(float64(numIssued) * revokedRatio))
+}
+
+func benchmarkCaseName(numIssued, numRevoked int, revokedRatio float64, numEpochs int) string {
+	return fmt.Sprintf("issued=%d/revoked=%.3g%%/revoked_count=%d/epochs=%d", numIssued, revokedRatio*100, numRevoked, numEpochs)
+}
+
+func skipZeroRevokedStatus(b *testing.B, status ocsp.Status, numRevoked int) {
+	b.Helper()
+	if status == ocsp.Revoked && numRevoked == 0 {
+		b.Skip("revoked status requires at least one revoked certificate")
+	}
+}
+
+func epochRange(total, numEpochs, epoch int) (int, int) {
+	return epoch * total / numEpochs, (epoch + 1) * total / numEpochs
 }
 
 func protoSize(t testing.TB, m proto.Message) int {
